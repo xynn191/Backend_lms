@@ -12,7 +12,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&Admin{},
 		&Teacher{},
 		&Major{},
-		&Class{}, // Dependent on Major and Teacher
+		&Class{},   // Dependent on Major and Teacher
 		&Student{}, // Dependent on Class
 		&Curriculum{},
 		&Principal{},
