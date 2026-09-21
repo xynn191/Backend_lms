@@ -6,10 +6,10 @@ import (
 )
 
 type DashboardStats struct {
-	TotalStudents  int64
-	TotalTeachers  int64
-	TotalClasses   int64
-	TotalSubjects  int64
+	TotalStudents int64
+	TotalTeachers int64
+	TotalClasses  int64
+	TotalSubjects int64
 }
 
 type AdminRepository interface {

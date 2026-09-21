@@ -10,12 +10,12 @@ import (
 )
 
 type CreateStudentDTO struct {
-	Email   string `json:"email" binding:"required,email"`
+	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
-	NISN    string `json:"nisn" binding:"required"`
-	Name    string `json:"name" binding:"required"`
-	Gender  string `json:"gender" binding:"required,oneof=L P"`
-	ClassID uint   `json:"class_id" binding:"required"`
+	NISN     string `json:"nisn" binding:"required"`
+	Name     string `json:"name" binding:"required"`
+	Gender   string `json:"gender" binding:"required,oneof=L P"`
+	ClassID  uint   `json:"class_id" binding:"required"`
 }
 
 type UpdateStudentDTO struct {
@@ -26,11 +26,11 @@ type UpdateStudentDTO struct {
 }
 
 type CreateTeacherDTO struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	NIP      string `json:"nip"`
-	Name     string `json:"name" binding:"required"`
-	Gender   string `json:"gender" binding:"required,oneof=L P"`
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=6"`
+	NIP         string `json:"nip"`
+	Name        string `json:"name" binding:"required"`
+	Gender      string `json:"gender" binding:"required,oneof=L P"`
 	PhoneNumber string `json:"phone_number"`
 }
 
@@ -42,10 +42,10 @@ type UpdateTeacherDTO struct {
 }
 
 type CreateStaffDTO struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	NIP      string `json:"nip"`
-	Name     string `json:"name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=6"`
+	NIP         string `json:"nip"`
+	Name        string `json:"name" binding:"required"`
 	PhoneNumber string `json:"phone_number"`
 }
 

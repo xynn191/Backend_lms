@@ -9,14 +9,14 @@ import (
 )
 
 type Config struct {
-	AppPort       string
-	DBUser        string
-	DBPass        string
-	DBHost        string
-	DBPort        string
-	DBName        string
-	JWTSecret     string
-	JWTExpiresIn  time.Duration
+	AppPort      string
+	DBUser       string
+	DBPass       string
+	DBHost       string
+	DBPort       string
+	DBName       string
+	JWTSecret    string
+	JWTExpiresIn time.Duration
 }
 
 func Load() (*Config, error) {

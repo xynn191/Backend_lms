@@ -1,6 +1,8 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/xynn191/Backend_lms/internal/config"
 	"github.com/xynn191/Backend_lms/internal/handler"
@@ -12,6 +14,7 @@ import (
 
 func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	r := gin.Default()
+	r.Use(cors())
 
 	// Dependency injection
 	authRepo := repository.NewAuthRepository(db)
@@ -105,4 +108,22 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	}
 
 	return r
+}
+
+func cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin == "http://localhost:3000" || origin == "http://127.0.0.1:3000" {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		}
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }

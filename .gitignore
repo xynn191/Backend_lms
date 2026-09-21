@@ -1,0 +1,16 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Go build artifacts
+Backend_lms
+*.exe
+*.test
+*.out
+coverage.out
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
