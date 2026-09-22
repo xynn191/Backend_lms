@@ -33,12 +33,12 @@ func seedRoles(db *gorm.DB) {
 
 func seedAdminUser(db *gorm.DB) {
 	var existingUser User
-	result := db.Where("email = ?", "admin@edulms.id").First(&existingUser)
+	result := db.Where("email = ?", "admin@gmail.com").First(&existingUser)
 	if result.Error == nil {
 		return // Already exists
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte("Admin@123"), bcrypt.DefaultCost)
+	hashed, err := bcrypt.GenerateFromPassword([]byte("12345"), bcrypt.DefaultCost)
 	if err != nil {
 		log.Fatal("[Seed] Gagal hash password admin:", err)
 	}
@@ -46,7 +46,7 @@ func seedAdminUser(db *gorm.DB) {
 	adminUser := User{
 		ID:       "00000000-0000-0000-0000-000000000001",
 		RoleID:   1, // admin
-		Email:    "admin@edulms.id",
+		Email:    "admin@gmail.com",
 		Password: string(hashed),
 		IsActive: true,
 	}
