@@ -6,6 +6,7 @@ import (
 )
 
 type UserRepository interface {
+	FindRoleByName(name string) (*models.Role, error)
 	// Students
 	GetAllStudents() ([]models.Student, error)
 	FindStudentByID(id uint) (*models.Student, error)
@@ -41,6 +42,14 @@ type userRepository struct {
 
 func NewUserRepository(db *gorm.DB) UserRepository {
 	return &userRepository{db}
+}
+
+func (r *userRepository) FindRoleByName(name string) (*models.Role, error) {
+	var role models.Role
+	if err := r.db.Where("name = ?", name).First(&role).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
 }
 
 // ── Students ──────────────────────────────────────────────────────────────────

@@ -99,6 +99,24 @@ func hashPassword(password string) (string, error) {
 	return string(hashed), nil
 }
 
+func (s *userService) newUser(roleName, email, password string) (*models.User, error) {
+	hashed, err := hashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	role, err := s.repo.FindRoleByName(roleName)
+	if err != nil {
+		return nil, fmt.Errorf("role %q tidak tersedia: %w", roleName, err)
+	}
+	return &models.User{
+		ID:       uuid.New().String(),
+		RoleID:   role.ID,
+		Email:    email,
+		Password: hashed,
+		IsActive: true,
+	}, nil
+}
+
 // ── Students ──────────────────────────────────────────────────────────────────
 
 func (s *userService) GetAllStudents() ([]models.Student, error) {
@@ -110,16 +128,9 @@ func (s *userService) FindStudentByID(id uint) (*models.Student, error) {
 }
 
 func (s *userService) CreateStudent(dto *CreateStudentDTO) (*models.Student, error) {
-	hashed, err := hashPassword(dto.Password)
+	user, err := s.newUser(models.RoleStudent, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err
-	}
-	user := &models.User{
-		ID:       uuid.New().String(),
-		RoleID:   3, // siswa
-		Email:    dto.Email,
-		Password: hashed,
-		IsActive: true,
 	}
 	student := &models.Student{
 		NISN:    dto.NISN,
@@ -163,16 +174,9 @@ func (s *userService) FindTeacherByID(id uint) (*models.Teacher, error) {
 }
 
 func (s *userService) CreateTeacher(dto *CreateTeacherDTO) (*models.Teacher, error) {
-	hashed, err := hashPassword(dto.Password)
+	user, err := s.newUser(models.RoleTeacher, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err
-	}
-	user := &models.User{
-		ID:       uuid.New().String(),
-		RoleID:   2, // guru
-		Email:    dto.Email,
-		Password: hashed,
-		IsActive: true,
 	}
 	teacher := &models.Teacher{
 		NIP:         dto.NIP,
@@ -212,16 +216,9 @@ func (s *userService) GetAllCurriculums() ([]models.Curriculum, error) {
 }
 
 func (s *userService) CreateCurriculum(dto *CreateStaffDTO) (*models.Curriculum, error) {
-	hashed, err := hashPassword(dto.Password)
+	user, err := s.newUser(models.RoleCurriculum, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err
-	}
-	user := &models.User{
-		ID:       uuid.New().String(),
-		RoleID:   4, // kurikulum
-		Email:    dto.Email,
-		Password: hashed,
-		IsActive: true,
 	}
 	curriculum := &models.Curriculum{
 		NIP:         dto.NIP,
@@ -259,16 +256,9 @@ func (s *userService) GetAllPrincipals() ([]models.Principal, error) {
 }
 
 func (s *userService) CreatePrincipal(dto *CreateStaffDTO) (*models.Principal, error) {
-	hashed, err := hashPassword(dto.Password)
+	user, err := s.newUser(models.RolePrincipal, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err
-	}
-	user := &models.User{
-		ID:       uuid.New().String(),
-		RoleID:   5, // kepala_sekolah
-		Email:    dto.Email,
-		Password: hashed,
-		IsActive: true,
 	}
 	principal := &models.Principal{
 		NIP:         dto.NIP,

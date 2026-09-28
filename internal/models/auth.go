@@ -6,6 +6,25 @@ import (
 	"gorm.io/gorm"
 )
 
+// Role names are persisted in the database and included in JWT claims. Keep
+// them in one place so authentication, authorization, and user creation use
+// exactly the same values.
+const (
+	RoleAdmin      = "admin"
+	RoleTeacher    = "guru"
+	RoleStudent    = "siswa"
+	RoleCurriculum = "kurikulum"
+	RolePrincipal  = "kepala_sekolah"
+)
+
+var SupportedRoles = []string{
+	RoleAdmin,
+	RoleTeacher,
+	RoleStudent,
+	RoleCurriculum,
+	RolePrincipal,
+}
+
 type Role struct {
 	ID        uint   `gorm:"primaryKey"`
 	Name      string `gorm:"type:varchar(50);not null;unique"` // e.g., admin, guru, siswa, kurikulum, kepala_sekolah

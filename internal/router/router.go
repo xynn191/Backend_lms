@@ -7,6 +7,7 @@ import (
 	"github.com/xynn191/Backend_lms/internal/config"
 	"github.com/xynn191/Backend_lms/internal/handler"
 	"github.com/xynn191/Backend_lms/internal/middleware"
+	"github.com/xynn191/Backend_lms/internal/models"
 	"github.com/xynn191/Backend_lms/internal/repository"
 	"github.com/xynn191/Backend_lms/internal/service"
 	"gorm.io/gorm"
@@ -56,7 +57,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// ── Admin Routes ───────────────────────────────────────────────────────────
 	admin := api.Group("/admin")
 	admin.Use(middleware.AuthRequired(cfg.JWTSecret))
-	admin.Use(middleware.RoleRequired("admin"))
+	admin.Use(middleware.RoleRequired(models.RoleAdmin))
 	{
 		// Dashboard
 		admin.GET("/dashboard", adminH.Dashboard)

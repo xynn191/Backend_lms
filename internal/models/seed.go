@@ -14,16 +14,16 @@ func Seed(db *gorm.DB) {
 
 func seedRoles(db *gorm.DB) {
 	roles := []Role{
-		{ID: 1, Name: "admin"},
-		{ID: 2, Name: "guru"},
-		{ID: 3, Name: "siswa"},
-		{ID: 4, Name: "kurikulum"},
-		{ID: 5, Name: "kepala_sekolah"},
+		{ID: 1, Name: RoleAdmin},
+		{ID: 2, Name: RoleTeacher},
+		{ID: 3, Name: RoleStudent},
+		{ID: 4, Name: RoleCurriculum},
+		{ID: 5, Name: RolePrincipal},
 	}
 
 	for _, role := range roles {
 		var existing Role
-		result := db.First(&existing, role.ID)
+		result := db.Where("name = ?", role.Name).First(&existing)
 		if result.Error != nil {
 			db.Create(&role)
 		}
@@ -45,7 +45,7 @@ func seedAdminUser(db *gorm.DB) {
 
 	adminUser := User{
 		ID:       "00000000-0000-0000-0000-000000000001",
-		RoleID:   1, // admin
+		RoleID:   1, // RoleAdmin is seeded with ID 1 for the initial admin.
 		Email:    "admin@gmail.com",
 		Password: string(hashed),
 		IsActive: true,
