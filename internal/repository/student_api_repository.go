@@ -37,7 +37,6 @@ func (r *studentApiRepository) GetStudentProfile(userID string) (*models.Student
 
 func (r *studentApiRepository) GetMaterials(classID uint) ([]models.Material, error) {
 	var materials []models.Material
-	// Join with class_subjects to filter by classID and preload Subject for badge
 	err := r.db.Joins("JOIN class_subjects ON class_subjects.id = materials.class_subject_id").
 		Preload("ClassSubject.Subject").
 		Where("class_subjects.class_id = ?", classID).
@@ -67,7 +66,6 @@ func (r *studentApiRepository) GetDashboardStats(classID uint) (*StudentDashboar
 	r.db.Model(&models.Task{}).Joins("JOIN class_subjects ON class_subjects.id = tasks.class_subject_id").
 		Where("class_subjects.class_id = ?", classID).Count(&stats.TotalTasks)
 		
-	// Assuming pending is same as total for simplicity right now
 	stats.PendingTasks = stats.TotalTasks 
 
 	return &stats, nil
