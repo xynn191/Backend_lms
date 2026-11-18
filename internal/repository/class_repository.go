@@ -8,6 +8,7 @@ import (
 type ClassRepository interface {
 	GetAll() ([]models.Class, error)
 	FindByID(id uint) (*models.Class, error)
+	GetActiveAcademicYear() (*models.AcademicYear, error)
 	Create(class *models.Class) error
 	Update(class *models.Class) error
 	Delete(id uint) error
@@ -34,6 +35,14 @@ func (r *classRepository) FindByID(id uint) (*models.Class, error) {
 		return nil, err
 	}
 	return &class, nil
+}
+
+func (r *classRepository) GetActiveAcademicYear() (*models.AcademicYear, error) {
+	var academicYear models.AcademicYear
+	if err := r.db.Where("is_active = ?", true).First(&academicYear).Error; err != nil {
+		return nil, err
+	}
+	return &academicYear, nil
 }
 
 func (r *classRepository) Create(class *models.Class) error {

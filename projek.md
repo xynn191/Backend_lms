@@ -1,5 +1,8 @@
 # EduLMS Backend Project Tracker & Context
 
+## Integrasi Brand Veyora
+Frontend Veyora menggunakan backend ini melalui API `/api`; perubahan design system hanya memengaruhi presentasi frontend dan tidak mengubah kontrak endpoint.
+
 ## Konteks Proyek
 EduLMS Backend adalah REST API untuk sistem manajemen pembelajaran sekolah berbasis Role-Based Access Control (Admin, Guru, Siswa, Kurikulum, Kepala Sekolah).
 Dibangun menggunakan **Golang**, **Gin Framework**, **GORM** (ORM), dan **MySQL**.

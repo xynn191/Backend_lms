@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+
 	"github.com/xynn191/Backend_lms/internal/models"
 	"github.com/xynn191/Backend_lms/internal/repository"
 )
@@ -37,8 +39,13 @@ func (s *classService) FindByID(id uint) (*models.Class, error) {
 }
 
 func (s *classService) Create(dto *ClassDTO) (*models.Class, error) {
+	academicYear, err := s.repo.GetActiveAcademicYear()
+	if err != nil {
+		return nil, fmt.Errorf("tahun ajaran aktif tidak ditemukan: %w", err)
+	}
 	class := &models.Class{
 		MajorID:           dto.MajorID,
+		AcademicYearID:    academicYear.ID,
 		Name:              dto.Name,
 		GradeLevel:        dto.GradeLevel,
 		HomeroomTeacherID: dto.HomeroomTeacherID,

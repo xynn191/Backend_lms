@@ -6,6 +6,16 @@ import (
 	"gorm.io/gorm"
 )
 
+
+type AcademicYear struct {
+	ID        uint   `gorm:"primaryKey"`
+	Name      string `gorm:"type:varchar(50);not null;unique"` // e.g. "2026/2027 Ganjil"
+	IsActive  bool   `gorm:"default:false"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
 type Major struct {
 	ID        uint   `gorm:"primaryKey"`
 	Code      string `gorm:"type:varchar(20);not null;unique"` // e.g., RPL, TKJ
@@ -19,8 +29,10 @@ type Class struct {
 	ID                uint `gorm:"primaryKey"`
 	MajorID           uint `gorm:"not null"`
 	Major             Major
+	AcademicYearID    uint `gorm:"not null"`
+	AcademicYear      AcademicYear
 	Name              string   `gorm:"type:varchar(50);not null"` // e.g., X-RPL 1
-	GradeLevel        string   `gorm:"type:enum('X','XI','XII');not null"`
+	GradeLevel        string   `gorm:"type:varchar(10);not null"`
 	HomeroomTeacherID uint     // Wali Kelas
 	HomeroomTeacher   *Teacher `gorm:"foreignKey:HomeroomTeacherID"`
 	CreatedAt         time.Time
@@ -40,9 +52,9 @@ type Subject struct {
 // ClassSubject is the junction table connecting a Class, a Subject, and a Teacher.
 type ClassSubject struct {
 	ID        uint `gorm:"primaryKey"`
-	ClassID   uint `gorm:"not null"`
+	ClassID   uint `gorm:"not null;uniqueIndex:idx_class_subject"`
 	Class     Class
-	SubjectID uint `gorm:"not null"`
+	SubjectID uint `gorm:"not null;uniqueIndex:idx_class_subject"`
 	Subject   Subject
 	TeacherID uint `gorm:"not null"` // The teacher teaching this subject in this class
 	Teacher   Teacher

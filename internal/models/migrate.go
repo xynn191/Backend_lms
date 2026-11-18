@@ -12,6 +12,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&Admin{},
 		&Teacher{},
 		&Major{},
+		&AcademicYear{},
 		&Class{},   // Dependent on Major and Teacher
 		&Student{}, // Dependent on Class
 		&Curriculum{},
@@ -22,6 +23,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&Task{},
 		&TaskSubmission{},
 		&Assessment{},
+		&AssessmentQuestion{},
+		&AssessmentOption{},
 		&AssessmentSubmission{},
+		&AssessmentAnswer{},
 	)
 }

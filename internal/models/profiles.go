@@ -23,7 +23,7 @@ type Teacher struct {
 	User        User
 	NIP         string `gorm:"type:varchar(50);unique"` // Nomor Induk Pegawai
 	Name        string `gorm:"type:varchar(100);not null"`
-	Gender      string `gorm:"type:enum('L','P')"`
+	Gender      string `gorm:"type:varchar(10)"`
 	PhoneNumber string `gorm:"type:varchar(20)"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -36,7 +36,7 @@ type Student struct {
 	User      User
 	NISN      string `gorm:"type:varchar(50);unique;not null"`
 	Name      string `gorm:"type:varchar(100);not null"`
-	Gender    string `gorm:"type:enum('L','P')"`
+	Gender    string `gorm:"type:varchar(10)"`
 	ClassID   uint   `gorm:"not null"`
 	Class     *Class // Pointer to avoid circular init issues before Class is defined
 	CreatedAt time.Time
