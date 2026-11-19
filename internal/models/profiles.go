@@ -21,7 +21,7 @@ type Teacher struct {
 	ID          uint   `gorm:"primaryKey"`
 	UserID      string `gorm:"type:char(36);not null"`
 	User        User
-	NIP         string `gorm:"type:varchar(50);unique"` // Nomor Induk Pegawai
+	NIP         string `gorm:"type:varchar(50)"` // Nomor Induk Pegawai
 	Name        string `gorm:"type:varchar(100);not null"`
 	Gender      string `gorm:"type:varchar(10)"`
 	PhoneNumber string `gorm:"type:varchar(20)"`
@@ -34,7 +34,7 @@ type Student struct {
 	ID        uint   `gorm:"primaryKey"`
 	UserID    string `gorm:"type:char(36);not null"`
 	User      User
-	NISN      string `gorm:"type:varchar(50);unique;not null"`
+	NISN      string `gorm:"type:varchar(50);not null"`
 	Name      string `gorm:"type:varchar(100);not null"`
 	Gender    string `gorm:"type:varchar(10)"`
 	ClassID   uint   `gorm:"not null"`
@@ -48,7 +48,7 @@ type Curriculum struct {
 	ID          uint   `gorm:"primaryKey"`
 	UserID      string `gorm:"type:char(36);not null"`
 	User        User
-	NIP         string `gorm:"type:varchar(50);unique"`
+	NIP         string `gorm:"type:varchar(50)"`
 	Name        string `gorm:"type:varchar(100);not null"`
 	PhoneNumber string `gorm:"type:varchar(20)"`
 	CreatedAt   time.Time
@@ -60,7 +60,7 @@ type Principal struct {
 	ID          uint   `gorm:"primaryKey"`
 	UserID      string `gorm:"type:char(36);not null"`
 	User        User
-	NIP         string `gorm:"type:varchar(50);unique"`
+	NIP         string `gorm:"type:varchar(50)"`
 	Name        string `gorm:"type:varchar(100);not null"`
 	PhoneNumber string `gorm:"type:varchar(20)"`
 	CreatedAt   time.Time

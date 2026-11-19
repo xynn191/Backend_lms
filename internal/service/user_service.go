@@ -100,6 +100,11 @@ func hashPassword(password string) (string, error) {
 }
 
 func (s *userService) newUser(roleName, email, password string) (*models.User, error) {
+	if available, err := s.repo.IsEmailAvailable(email); err != nil {
+		return nil, err
+	} else if !available {
+		return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", email)
+	}
 	hashed, err := hashPassword(password)
 	if err != nil {
 		return nil, err
@@ -128,6 +133,11 @@ func (s *userService) FindStudentByID(id uint) (*models.Student, error) {
 }
 
 func (s *userService) CreateStudent(dto *CreateStudentDTO) (*models.Student, error) {
+	if available, err := s.repo.IsNISNAvailable(dto.NISN); err != nil {
+		return nil, err
+	} else if !available {
+		return nil, fmt.Errorf("NISN %q sudah terdaftar pada siswa aktif lain", dto.NISN)
+	}
 	user, err := s.newUser(models.RoleStudent, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err
@@ -174,6 +184,13 @@ func (s *userService) FindTeacherByID(id uint) (*models.Teacher, error) {
 }
 
 func (s *userService) CreateTeacher(dto *CreateTeacherDTO) (*models.Teacher, error) {
+	if dto.NIP != "" {
+		if available, err := s.repo.IsNIPAvailable(dto.NIP); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("NIP %q sudah terdaftar pada pengguna aktif lain", dto.NIP)
+		}
+	}
 	user, err := s.newUser(models.RoleTeacher, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err
@@ -216,6 +233,13 @@ func (s *userService) GetAllCurriculums() ([]models.Curriculum, error) {
 }
 
 func (s *userService) CreateCurriculum(dto *CreateStaffDTO) (*models.Curriculum, error) {
+	if dto.NIP != "" {
+		if available, err := s.repo.IsNIPAvailable(dto.NIP); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("NIP %q sudah terdaftar pada pengguna aktif lain", dto.NIP)
+		}
+	}
 	user, err := s.newUser(models.RoleCurriculum, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err
@@ -256,6 +280,13 @@ func (s *userService) GetAllPrincipals() ([]models.Principal, error) {
 }
 
 func (s *userService) CreatePrincipal(dto *CreateStaffDTO) (*models.Principal, error) {
+	if dto.NIP != "" {
+		if available, err := s.repo.IsNIPAvailable(dto.NIP); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("NIP %q sudah terdaftar pada pengguna aktif lain", dto.NIP)
+		}
+	}
 	user, err := s.newUser(models.RolePrincipal, dto.Email, dto.Password)
 	if err != nil {
 		return nil, err

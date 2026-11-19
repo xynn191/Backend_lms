@@ -54,7 +54,7 @@ func (s *studentApiService) GetDashboardStats(userID string) (*repository.Studen
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.GetDashboardStats(st.ClassID, st.ID)
+	return s.repo.GetDashboardStats(st.ClassID, st.ID, st)
 }
 
 func (s *studentApiService) GetMaterials(userID string) ([]models.Material, error) {

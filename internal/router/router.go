@@ -30,6 +30,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	classSubjectRepo := repository.NewClassSubjectRepository(db)
 	teacherApiRepo := repository.NewTeacherApiRepository(db)
 	studentApiRepo := repository.NewStudentApiRepository(db)
+	monitoringRepo := repository.NewMonitoringRepository(db)
 
 	authSvc := service.NewAuthService(authRepo, cfg)
 	adminSvc := service.NewAdminService(adminRepo)
@@ -40,6 +41,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	classSubjectSvc := service.NewClassSubjectService(classSubjectRepo)
 	teacherApiSvc := service.NewTeacherApiService(teacherApiRepo)
 	studentApiSvc := service.NewStudentApiService(studentApiRepo)
+	monitoringSvc := service.NewMonitoringService(monitoringRepo)
 
 	authH := handler.NewAuthHandler(authSvc)
 	adminH := handler.NewAdminHandler(adminSvc)
@@ -50,6 +52,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	classSubjectH := handler.NewClassSubjectHandler(classSubjectSvc)
 	teacherApiH := handler.NewTeacherApiHandler(teacherApiSvc)
 	studentApiH := handler.NewStudentApiHandler(studentApiSvc)
+	monitoringH := handler.NewMonitoringHandler(monitoringSvc)
 	uploadH := handler.NewUploadHandler()
 
 	api := r.Group("/api")
@@ -184,6 +187,22 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		student.GET("/assessments", studentApiH.Assessments)
 		student.GET("/assessments/:id", studentApiH.AssessmentDetail)
 		student.POST("/assessments/:id/submit", studentApiH.SubmitAssessment)
+	}
+
+	// ── Curriculum Routes ──────────────────────────────────────────────────────
+	curriculum := api.Group("/curriculum")
+	curriculum.Use(middleware.AuthRequired(cfg.JWTSecret))
+	curriculum.Use(middleware.RoleRequired(models.RoleCurriculum, models.RoleAdmin))
+	{
+		curriculum.GET("/monitoring", monitoringH.CurriculumMonitoring)
+	}
+
+	// ── Principal Routes ───────────────────────────────────────────────────────
+	principal := api.Group("/principal")
+	principal.Use(middleware.AuthRequired(cfg.JWTSecret))
+	principal.Use(middleware.RoleRequired(models.RolePrincipal, models.RoleAdmin))
+	{
+		principal.GET("/monitoring", monitoringH.PrincipalMonitoring)
 	}
 
 	return r

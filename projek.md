@@ -1,38 +1,54 @@
-# EduLMS Backend Project Tracker & Context
+# Veyora LMS Backend Project Tracker & Context
 
-## Integrasi Brand Veyora
-Frontend Veyora menggunakan backend ini melalui API `/api`; perubahan design system hanya memengaruhi presentasi frontend dan tidak mengubah kontrak endpoint.
+## [SELESAI] Database Migration & Schema Fixes
+- [x] **Soft Delete & Partial Unique Index Architecture (Re-create Account with Fresh PK)**:
+  - `internal/models/auth.go` & `internal/models/profiles.go`: Melepaskan tag rigid `;unique` yang sebelumnya memblokir soft-deleted records pada kolom `users.email`, `teachers.nip`, `students.nisn`, `curriculums.nip`, dan `principals.nip`.
+  - `internal/models/migrate.go`: Mengimplementasikan migrasi otomatis `setupActiveUniqueIndexes(db)` yang menghapus index lama dan membuat **Partial Unique Index** (hanya berlaku jika `deleted_at IS NULL`):
+    - MySQL 8.0.13+: Menggunakan functional expression index `((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END))`.
+    - PostgreSQL / SQLite: Menggunakan conditional unique index `WHERE deleted_at IS NULL`.
+  - `internal/repository/user_repository.go`: Menambahkan helper verifikasi ketersediaan aktif: `IsEmailAvailable`, `IsNIPAvailable`, dan `IsNISNAvailable`.
+  - `internal/service/user_service.go`: Integrasi validasi pra-pembuatan akun untuk Siswa, Guru, Tim Kurikulum, dan Kepala Sekolah.
+  - **Hasil**: Data lama yang dihapus tetap tersimpan rapi di database (soft delete/arsip riwayat). Saat admin mendaftarkan ulang akun dengan email atau NIP yang sama (misal `kurikulum@gmail.com`), sistem sukses membuat baris baru dengan **Primary Key (PK) baru** tanpa terjadi konflik constraint database.
+- [x] **Fix Foreign Key Constraint `classes.academic_year_id` (Error 1452)**:
+  - `internal/models/master.go`: Field `AcademicYearID` pada model `Class` diubah menjadi pointer nullable `*uint` dengan `gorm:"foreignKey:AcademicYearID;constraint:-;"`.
+  - `internal/models/migrate.go`: Alur migrasi disempurnakan:
+    1. Migrasi tabel `academic_years` terlebih dahulu.
+    2. Seed tahun akademik aktif default ("2026/2027 Ganjil") jika belum ada data.
+    3. Eksekusi `UPDATE classes SET academic_year_id = ? WHERE academic_year_id IS NULL OR academic_year_id = 0` sebelum constraint diterapkan untuk mencegah kegagalan FK pada database yang sudah berisi data.
+- [x] Verifikasi build backend: `go build ./...` berjalan sukses tanpa error.
+
+---
 
 ## Konteks Proyek
-EduLMS Backend adalah REST API untuk sistem manajemen pembelajaran sekolah berbasis Role-Based Access Control (Admin, Guru, Siswa, Kurikulum, Kepala Sekolah).
+Veyora LMS Backend adalah REST API untuk sistem manajemen pembelajaran sekolah berbasis Role-Based Access Control (Admin, Guru, Siswa, Kurikulum, Kepala Sekolah).
 Dibangun menggunakan **Golang**, **Gin Framework**, **GORM** (ORM), dan **MySQL**.
-Menggunakan pola **Clean Architecture**: Handler → Service → Repository.
+Menggunakan arsitektur berlapis (**Clean Architecture**): Handler → Service → Repository.
 
 ## Tech Stack
 - Language: Go 1.26
-- Framework: Gin
-- ORM: GORM (dengan Soft Deletes)
+- Framework: Gin Web Framework
+- ORM: GORM (dengan Soft Deletes & Migrations)
 - Database: MySQL / MariaDB
-- Auth: JWT (1 hari, via golang-jwt/v5)
+- Auth: JWT (1 hari, via golang-jwt/v5) + bcrypt
 - Config: .env + godotenv
 
 ## Konfigurasi Default (.env)
 - APP_PORT=8080
-- DB_NAME=edulms_db
+- DB_NAME=lms
 - Default Admin: admin@gmail.com / Admin@123
 
 ## Struktur Direktori
 - `internal/config/` — Load .env dan DSN builder
-- `internal/models/` — GORM structs + AutoMigrate + Seeder
-- `internal/repository/` — Query database
-- `internal/service/` — Logika bisnis
-- `internal/handler/` — HTTP handler (Gin)
-- `internal/middleware/` — Auth JWT + Role check
-- `internal/router/` — Pendaftaran semua routes
+- `internal/models/` — GORM structs, AutoMigrate, Seeder, dan Schema relationships
+- `internal/repository/` — Query database (Admin, Auth, User, Master, Teacher, Student, Monitoring)
+- `internal/service/` — Logika bisnis (Auth, Admin, User, Master, Teacher, Student, Monitoring)
+- `internal/handler/` — HTTP handler Gin (Auth, Admin, User, Master, Teacher, Student, Monitoring, Upload)
+- `internal/middleware/` — Auth JWT + Variadic Role checking (`RoleRequired(roles ...string)`)
+- `internal/router/` — Pendaftaran semua routes dan CORS
 
 ---
 
-## Riwayat Pembuatan
+## Riwayat Pembuatan & Modul Selesai
 
 ### [SELESAI] Fondasi & Database
 - [x] Inisialisasi Go Module (`github.com/xynn191/Backend_lms`)
@@ -40,70 +56,100 @@ Menggunakan pola **Clean Architecture**: Handler → Service → Repository.
 - [x] `internal/config/config.go` — Config struct + Load() + DSN()
 - [x] `internal/models/auth.go` — Model Role dan User (UUID primary key) + konstanta role name
 - [x] `internal/models/profiles.go` — Admin, Teacher, Student, Curriculum, Principal
-- [x] `internal/models/master.go` — Major, Class, Subject, ClassSubject
-- [x] `internal/models/learning.go` — Material, Task, TaskSubmission, Assessment, AssessmentSubmission
-- [x] `internal/models/migrate.go` — AutoMigrate() semua tabel
-- [x] `internal/models/seed.go` — Seed roles (5 role) + user admin default
+- [x] `internal/models/master.go` — AcademicYear, Major, Class, Subject, ClassSubject
+- [x] `internal/models/learning.go` — Material, Task, TaskSubmission, Assessment, AssessmentQuestion, AssessmentOption, AssessmentSubmission, AssessmentAnswer
+- [x] `internal/models/migrate.go` — AutoMigrate() semua tabel dengan dependency ordering aman
+- [x] `internal/models/seed.go` — Seed roles (5 role) + user admin default + tahun akademik default
 
 ### [SELESAI] Auth Layer
-- [x] `internal/middleware/auth_middleware.go` — AuthRequired() validasi JWT, RoleRequired() cek role
+- [x] `internal/middleware/auth_middleware.go` — AuthRequired() validasi JWT, RoleRequired(roles ...string)
 - [x] `internal/repository/auth_repository.go` — FindUserByEmail, FindUserByID
 - [x] `internal/service/auth_service.go` — Login (bcrypt + JWT generate), GetProfile()
 - [x] `internal/handler/auth_handler.go` — POST /api/auth/login, GET /api/auth/me
 
-### [SELESAI] Admin Endpoints
-- [x] `internal/repository/admin_repository.go` — GetDashboardStats()
-- [x] `internal/service/admin_service.go` — GetDashboardStats()
-- [x] `internal/handler/admin_handler.go` — GET /api/admin/dashboard
+### [SELESAI] Master Data & User Management (Admin Only)
+- [x] `internal/repository/major_repository.go` & `service/` & `handler/` — CRUD Jurusan (`/api/admin/majors`)
+- [x] `internal/repository/class_repository.go` & `service/` & `handler/` — CRUD Kelas (`/api/admin/classes`)
+- [x] `internal/repository/subject_repository.go` & `service/` & `handler/` — CRUD Mata Pelajaran (`/api/admin/subjects`)
+- [x] `internal/repository/class_subject_repository.go` & `service/` & `handler/` — CRUD Penugasan Guru (`/api/admin/class-subjects`)
+- [x] `internal/repository/user_repository.go` & `service/` & `handler/` — CRUD Siswa, Guru, Tim Kurikulum, Kepala Sekolah
 
-### [SELESAI] Master Data Endpoints (Admin Only)
-- [x] `internal/repository/major_repository.go` — CRUD Jurusan
-- [x] `internal/service/major_service.go` — CRUD Jurusan
-- [x] `internal/handler/major_handler.go` — GET/POST/PUT/DELETE /api/admin/majors
+### [SELESAI] Pembelajaran & Penilaian Guru (Teacher API)
+- [x] `internal/repository/teacher_api_repository.go`, `service/`, `handler/`:
+  - GET `/api/teacher/dashboard`: Ringkasan kelas diampu, total materi, tugas, dan submission pending
+  - CRUD `/api/teacher/materials` + PATCH `/materials/:id/publish`
+  - CRUD `/api/teacher/tasks` + PATCH `/tasks/:id/publish`
+  - GET `/api/teacher/tasks/:id/submissions`: Daftar pengumpulan tugas siswa
+  - PUT `/api/teacher/submissions/:submission_id/grade`: Penilaian nilai manual + feedback guru
+  - CRUD `/api/teacher/assessments` + PATCH `/assessments/:id/publish` + GET `/assessments/:id/results`
+  - GET `/api/teacher/grades` & `/grades/detail`: Rekap nilai terpadu per kelas dan per siswa
 
-- [x] `internal/repository/class_repository.go` — CRUD Kelas (dengan Preload)
-- [x] `internal/service/class_service.go` — CRUD Kelas
-- [x] `internal/handler/class_handler.go` — GET/POST/PUT/DELETE /api/admin/classes
+### [SELESAI] Portal Siswa (Student API)
+- [x] `internal/repository/student_api_repository.go`, `service/`, `handler/`:
+  - GET `/api/student/dashboard`: Ringkasan mapel, tugas pending, dan status kuis
+  - GET `/api/student/materials` & `/materials/:id`: Akses modul bahan ajar
+  - GET `/api/student/tasks` & `/tasks/:id`: Daftar dan detail instruksi tugas
+  - POST `/api/student/tasks/:id/submit`: Pengumpulan tugas (URL file lampiran dan tautan link)
+  - GET `/api/student/assessments` & `/assessments/:id`: Akses kuis/ujian dengan opsi soal teracak dan flag kunci jawaban disembunyikan
+  - POST `/api/student/assessments/:id/submit`: Pengerjaan kuis dengan evaluasi dan perhitungan skor otomatis (auto-scoring 0-100)
 
-- [x] `internal/repository/subject_repository.go` — CRUD Mata Pelajaran
-- [x] `internal/service/subject_service.go` — CRUD Mata Pelajaran
-- [x] `internal/handler/subject_handler.go` — GET/POST/PUT/DELETE /api/admin/subjects
+### [SELESAI] File Upload Engine (Local Storage)
+- [x] `internal/handler/upload_handler.go`:
+  - POST `/api/upload`: Menerima multipart/form-data
+  - Batasan ukuran file: Maksimum 25 MB
+  - Whitelist ekstensi aman: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, JPEG, PNG, WEBP, GIF, MP3, WAV, MP4, MKV
+  - Simpan lokal di direktori `./uploads` dengan UUID penamaan unik
+  - Static endpoint: `r.Static("/uploads", "./uploads")`
 
-### [SELESAI] User Management Endpoints (Admin Only)
-- [x] `internal/repository/user_repository.go` — CRUD Student, Teacher, Curriculum, Principal + FindRoleByName
-- [x] `internal/service/user_service.go` — CRUD semua 4 tipe user (menggunakan uuid, atomic transaction)
-- [x] `internal/handler/user_handler.go` — CRUD /api/admin/students, /teachers, /curriculums, /principals
+### [SELESAI] Monitoring Kurikulum & Kepala Sekolah
+- [x] `internal/repository/monitoring_repository.go`, `service/`, `handler/`:
+  - GET `/api/curriculum/monitoring`: Keterisian silabus pembelajaran, persentase pengumpulan tugas siswa, rata-rata nilai sekolah, data progres per kelas, dan status materi per mata pelajaran
+  - GET `/api/principal/monitoring`: Partisipasi akademik sekolah, efektivitas pendidik, rerata nilai mutu sekolah, distribusi rombel per jurusan, dan rekap keaktifan guru
 
-### [SELESAI] Student API Endpoints (Siswa Only)
-- [x] `internal/repository/student_api_repository.go` — GetStudentProfile, GetMaterials, GetTasks, GetDashboardStats (query berdasarkan classID)
-- [x] `internal/service/student_api_service.go` — GetDashboardStats, GetMaterials, GetTasks
-- [x] `internal/handler/student_api_handler.go` — GET /api/student/dashboard, /materials, /tasks
-
-### [SELESAI] Router
-- [x] `internal/router/router.go` — Wire semua dependency + register semua 28 endpoint
-
----
-
-## Semua Endpoint Aktif
-| Method | Endpoint | Role |
-|---|---|---|
-| POST | /api/auth/login | Public |
-| GET | /api/auth/me | Any |
-| GET | /api/admin/dashboard | Admin |
-| GET/POST/PUT/DELETE | /api/admin/majors | Admin |
-| GET/POST/PUT/DELETE | /api/admin/classes | Admin |
-| GET/POST/PUT/DELETE | /api/admin/subjects | Admin |
-| GET/POST/PUT/DELETE | /api/admin/students | Admin |
-| GET/POST/PUT/DELETE | /api/admin/teachers | Admin |
-| GET/POST/PUT/DELETE | /api/admin/curriculums | Admin |
-| GET/POST/PUT/DELETE | /api/admin/principals | Admin |
-| GET | /api/student/dashboard | Siswa |
-| GET | /api/student/materials | Siswa |
-| GET | /api/student/tasks | Siswa |
+### [SELESAI] Router & Security
+- [x] `internal/router/router.go`: Wire seluruh repositori, service, dan handler dengan dependency injection
+- [x] Middleware JWT Bearer Authentication & Role-Based Authorization
+- [x] Konfigurasi CORS responsif untuk `http://localhost:3000`
 
 ---
 
-## Todo Berikutnya
-- [ ] Guru API: endpoint untuk guru (lihat kelas, buat materi, buat tugas, beri nilai)
-- [ ] Kurikulum & Kepsek API: endpoint monitoring dan laporan
-- [ ] File upload untuk lampiran materi dan pengumpulan tugas
+## Daftar Lengkap Endpoint Aktif (30 Endpoint)
+
+| Method | Endpoint | Akses Role | Deskripsi |
+|---|---|---|---|
+| POST | `/api/auth/login` | Public | Autentikasi email & password, mengembalikan JWT token |
+| GET | `/api/auth/me` | Authenticated | Profil pengguna aktif & role saat ini |
+| POST | `/api/upload` | Authenticated | Upload berkas materi/tugas (maks 25 MB, disimpan di `./uploads`) |
+| GET | `/api/admin/dashboard` | Admin | Statistik total siswa, guru, kelas, mata pelajaran |
+| GET/POST/PUT/DELETE | `/api/admin/majors` | Admin | Master data program keahlian / jurusan |
+| GET/POST/PUT/DELETE | `/api/admin/classes` | Admin | Master data kelas, tingkat, jurusan, dan wali kelas |
+| GET/POST/PUT/DELETE | `/api/admin/subjects` | Admin | Master data mata pelajaran sekolah |
+| GET/POST/PUT/DELETE | `/api/admin/class-subjects` | Admin | Penugasan guru pengampu per kelas dan mapel |
+| GET/POST/PUT/DELETE | `/api/admin/students` | Admin | Manajemen akun dan data profil siswa |
+| GET/POST/PUT/DELETE | `/api/admin/teachers` | Admin | Manajemen akun dan data profil guru |
+| GET/POST/PUT/DELETE | `/api/admin/curriculums` | Admin | Manajemen akun tim pengembang kurikulum |
+| GET/POST/PUT/DELETE | `/api/admin/principals` | Admin | Manajemen akun kepala sekolah |
+| GET | `/api/teacher/dashboard` | Guru | Ringkasan kegiatan mengajar guru |
+| GET/POST/PUT/DELETE | `/api/teacher/materials` | Guru | Kelola modul pembelajaran guru |
+| PATCH | `/api/teacher/materials/:id/publish` | Guru | Terbitkan / tarik materi ajar |
+| GET/POST/PUT/DELETE | `/api/teacher/tasks` | Guru | Kelola penugasan siswa |
+| PATCH | `/api/teacher/tasks/:id/publish` | Guru | Terbitkan / sembunyikan tugas |
+| GET | `/api/teacher/tasks/:id/submissions` | Guru | Daftar submission tugas siswa |
+| PUT | `/api/teacher/submissions/:submission_id/grade` | Guru | Input nilai angka & catatan evaluasi guru |
+| GET/POST/PUT/DELETE | `/api/teacher/assessments` | Guru | Kelola ujian online pilihan ganda |
+| GET | `/api/student/dashboard` | Siswa | Ringkasan materi, tugas, dan ujian siswa |
+| GET | `/api/student/materials` | Siswa | Daftar materi mata pelajaran kelas siswa |
+| GET | `/api/student/materials/:id` | Siswa | Detail isi modul materi dan unduh lampiran |
+| GET | `/api/student/tasks` | Siswa | Daftar tugas yang harus dikerjakan |
+| GET | `/api/student/tasks/:id` | Siswa | Detail instruksi tugas & status pengumpulan |
+| POST | `/api/student/tasks/:id/submit` | Siswa | Kirim berkas tugas / tautan link |
+| GET | `/api/student/assessments` | Siswa | Daftar kuis online terjadwal |
+| GET | `/api/student/assessments/:id` | Siswa | Lembar butir soal ujian online |
+| POST | `/api/student/assessments/:id/submit` | Siswa | Kumpulkan jawaban ujian dengan auto-scoring instan |
+| GET | `/api/curriculum/monitoring` | Kurikulum, Admin | Metrik ketercapaian silabus & mutu akademik |
+| GET | `/api/principal/monitoring` | Kepala Sekolah, Admin | Ringkasan eksekutif performa dan mutu sekolah |
+
+---
+
+## Verifikasi Kualitas
+- Build Check: `go build ./...` -> **0 Error (Exit Code 0)**

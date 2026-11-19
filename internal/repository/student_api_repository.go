@@ -9,11 +9,14 @@ import (
 )
 
 type StudentDashboardStats struct {
-	TotalSubjects    int64 `json:"total_subjects"`
-	TotalMaterials   int64 `json:"total_materials"`
-	TotalTasks       int64 `json:"total_tasks"`
-	PendingTasks     int64 `json:"pending_tasks"`
-	TotalAssessments int64 `json:"total_assessments"`
+	StudentName      string `json:"student_name"`
+	StudentNISN      string `json:"student_nisn"`
+	ClassName        string `json:"class_name"`
+	TotalSubjects    int64  `json:"total_subjects"`
+	TotalMaterials   int64  `json:"total_materials"`
+	TotalTasks       int64  `json:"total_tasks"`
+	PendingTasks     int64  `json:"pending_tasks"`
+	TotalAssessments int64  `json:"total_assessments"`
 }
 
 type StudentTaskItem struct {
@@ -36,7 +39,7 @@ type StudentApiRepository interface {
 	GetAssessments(classID uint, studentID uint) ([]StudentAssessmentItem, error)
 	GetAssessmentByID(classID uint, studentID uint, id uint) (*StudentAssessmentItem, error)
 	SubmitAssessment(studentID uint, assessmentID uint, answers map[uint]uint) (*models.AssessmentSubmission, error)
-	GetDashboardStats(classID uint, studentID uint) (*StudentDashboardStats, error)
+	GetDashboardStats(classID uint, studentID uint, student *models.Student) (*StudentDashboardStats, error)
 }
 
 type studentApiRepository struct {
@@ -263,8 +266,16 @@ func (r *studentApiRepository) SubmitAssessment(studentID uint, assessmentID uin
 	return &sub, nil
 }
 
-func (r *studentApiRepository) GetDashboardStats(classID uint, studentID uint) (*StudentDashboardStats, error) {
+func (r *studentApiRepository) GetDashboardStats(classID uint, studentID uint, student *models.Student) (*StudentDashboardStats, error) {
 	var stats StudentDashboardStats
+
+	if student != nil {
+		stats.StudentName = student.Name
+		stats.StudentNISN = student.NISN
+		if student.Class != nil {
+			stats.ClassName = student.Class.Name
+		}
+	}
 
 	r.db.Model(&models.ClassSubject{}).Where("class_id = ?", classID).Count(&stats.TotalSubjects)
 

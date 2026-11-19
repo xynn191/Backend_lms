@@ -34,6 +34,11 @@ type UserRepository interface {
 	CreateUserWithPrincipal(user *models.User, principal *models.Principal) error
 	UpdatePrincipal(principal *models.Principal) error
 	DeletePrincipal(id uint) error
+
+	// Active Uniqueness Checks
+	IsEmailAvailable(email string) (bool, error)
+	IsNIPAvailable(nip string) (bool, error)
+	IsNISNAvailable(nisn string) (bool, error)
 }
 
 type userRepository struct {
@@ -226,4 +231,36 @@ func (r *userRepository) DeletePrincipal(id uint) error {
 		}
 		return tx.Delete(&principal).Error
 	})
+}
+
+// ── Active Uniqueness Availability Checks ─────────────────────────────────────
+
+func (r *userRepository) IsEmailAvailable(email string) (bool, error) {
+	var count int64
+	// GORM automatically adds `WHERE deleted_at IS NULL`
+	err := r.db.Model(&models.User{}).Where("email = ?", email).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count == 0, nil
+}
+
+func (r *userRepository) IsNIPAvailable(nip string) (bool, error) {
+	if nip == "" {
+		return true, nil
+	}
+	var countTeacher, countCurriculum, countPrincipal int64
+	_ = r.db.Model(&models.Teacher{}).Where("nip = ?", nip).Count(&countTeacher).Error
+	_ = r.db.Model(&models.Curriculum{}).Where("nip = ?", nip).Count(&countCurriculum).Error
+	_ = r.db.Model(&models.Principal{}).Where("nip = ?", nip).Count(&countPrincipal).Error
+	return (countTeacher + countCurriculum + countPrincipal) == 0, nil
+}
+
+func (r *userRepository) IsNISNAvailable(nisn string) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Student{}).Where("nisn = ?", nisn).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count == 0, nil
 }

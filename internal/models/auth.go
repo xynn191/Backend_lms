@@ -38,7 +38,7 @@ type User struct {
 	ID        string `gorm:"type:char(36);primaryKey"` // UUID
 	RoleID    uint   `gorm:"not null"`
 	Role      Role
-	Email     string `gorm:"type:varchar(100);not null;unique"`
+	Email     string `gorm:"type:varchar(100);not null"`
 	Password  string `gorm:"type:varchar(255);not null"`
 	IsActive  bool   `gorm:"default:true"`
 	CreatedAt time.Time
