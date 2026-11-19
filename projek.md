@@ -1,5 +1,32 @@
 # Veyora LMS Backend Project Tracker & Context
 
+## [SELESAI] Isolasi Route RBAC & Integrasi Aktivitas Guru untuk Kurikulum & Kepala Sekolah
+- [x] **Aktivitas Guru pada Endpoint Kurikulum (`TeacherActivityItem`)**:
+  - `internal/repository/monitoring_repository.go`: Menambahkan field `TeacherActivity []TeacherActivityItem` pada struct `CurriculumMonitoringData`.
+  - Mengimplementasikan penghitungan aktivitas riil per guru (`subject_count`, `material_count`, `task_count`) pada method `GetCurriculumMonitoring()`.
+- [x] **Eksposur Route Read-Only Master Data untuk Kurikulum & Kepala Sekolah**:
+  - `internal/router/router.go`: Mendaftarkan endpoint baca kelas & mapel tanpa melanggar proteksi admin:
+    - `curriculum.GET("/classes", classH.GetAll)`
+    - `curriculum.GET("/subjects", subjectH.GetAll)`
+    - `principal.GET("/classes", classH.GetAll)`
+    - `principal.GET("/subjects", subjectH.GetAll)`
+  - Menghilangkan potensi error `403 Forbidden` saat akun non-admin (Kurikulum / Kepala Sekolah) mengakses data referensi kelas & mapel.
+- [x] Verifikasi build backend: `go build -o server main.go` dan `go test ./...` sukses dengan Exit Code 0.
+
+---
+
+## [SELESAI] API Nilai Siswa Sekolah untuk Kurikulum & Kepala Sekolah
+- [x] **Repository Nilai Tingkat Sekolah (`SchoolGradeItem`)**:
+  - `internal/repository/monitoring_repository.go`: Menambahkan struct `SchoolGradeItem` (student_id, student_name, student_nisn, class_id, class_name, subject_id, subject_name, task_average, assessment_average, final_score).
+  - Mengimplementasikan `GetSchoolGrades(classID uint, subjectID uint) ([]SchoolGradeItem, error)` yang menghitung agregasi tugas & ujian riil siswa per kelas dan mata pelajaran.
+- [x] **Service & Handler Integrasi**:
+  - `internal/service/monitoring_service.go`: Meneruskan pemanggilan `GetSchoolGrades`.
+  - `internal/handler/monitoring_handler.go`: Menambahkan handler `SchoolGrades` dengan dukungan filter query string `class_id` dan `subject_id`.
+  - `internal/router/router.go`: Mendaftarkan endpoint `GET /api/curriculum/grades` dan `GET /api/principal/grades` terlindungi RBAC.
+- [x] Verifikasi build backend: `go build -o server main.go` dan `go test ./...` sukses dengan Exit Code 0.
+
+---
+
 ## [SELESAI] Pembersihan Startup Migrations & Eliminasi Warning SQL Backend
 - [x] **Standardisasi Kolom NIP (`column:nip`)**:
   - `internal/models/profiles.go`: Menambahkan tag eksplisit `gorm:"type:varchar(50);column:nip"` pada struct `Teacher`, `Curriculum`, dan `Principal`. Mencegah GORM membuat kolom default `n_ip` (penyebab Error 1072).

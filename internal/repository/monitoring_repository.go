@@ -41,6 +41,7 @@ type CurriculumMonitoringData struct {
 	AverageSchoolScore     float64                 `json:"average_school_score"`
 	ClassProgress          []ClassProgressItem     `json:"class_progress"`
 	SubjectStats           []SubjectMonitoringItem `json:"subject_stats"`
+	TeacherActivity        []TeacherActivityItem   `json:"teacher_activity"`
 }
 
 type MajorStatItem struct {
@@ -75,9 +76,23 @@ type PrincipalMonitoringData struct {
 	TopTeacherActivity    []TeacherActivityItem `json:"top_teacher_activity"`
 }
 
+type SchoolGradeItem struct {
+	StudentID         uint    `json:"student_id"`
+	StudentName       string  `json:"student_name"`
+	StudentNISN       string  `json:"student_nisn"`
+	ClassID           uint    `json:"class_id"`
+	ClassName         string  `json:"class_name"`
+	SubjectID         uint    `json:"subject_id"`
+	SubjectName       string  `json:"subject_name"`
+	TaskAverage       float64 `json:"task_average"`
+	AssessmentAverage float64 `json:"assessment_average"`
+	FinalScore        float64 `json:"final_score"`
+}
+
 type MonitoringRepository interface {
 	GetCurriculumMonitoring() (*CurriculumMonitoringData, error)
 	GetPrincipalMonitoring() (*PrincipalMonitoringData, error)
+	GetSchoolGrades(classID uint, subjectID uint) ([]SchoolGradeItem, error)
 }
 
 type monitoringRepository struct {
@@ -249,6 +264,36 @@ func (r *monitoringRepository) GetCurriculumMonitoring() (*CurriculumMonitoringD
 		})
 	}
 
+	// Aktivitas & Kinerja Guru untuk Kurikulum
+	var teachers []models.Teacher
+	r.db.Order("name ASC").Find(&teachers)
+	data.TeacherActivity = make([]TeacherActivityItem, 0, len(teachers))
+	for _, t := range teachers {
+		var subjCount int64
+		r.db.Model(&models.ClassSubject{}).Where("teacher_id = ?", t.ID).Distinct("subject_id").Count(&subjCount)
+
+		var matCount int64
+		r.db.Model(&models.Material{}).
+			Joins("JOIN class_subjects ON class_subjects.id = materials.class_subject_id").
+			Where("class_subjects.teacher_id = ?", t.ID).
+			Count(&matCount)
+
+		var tskCount int64
+		r.db.Model(&models.Task{}).
+			Joins("JOIN class_subjects ON class_subjects.id = tasks.class_subject_id").
+			Where("class_subjects.teacher_id = ?", t.ID).
+			Count(&tskCount)
+
+		data.TeacherActivity = append(data.TeacherActivity, TeacherActivityItem{
+			TeacherID:     t.ID,
+			TeacherName:   t.Name,
+			NIP:           t.NIP,
+			SubjectCount:  subjCount,
+			MaterialCount: matCount,
+			TaskCount:     tskCount,
+		})
+	}
+
 	return data, nil
 }
 
@@ -375,4 +420,63 @@ func (r *monitoringRepository) GetPrincipalMonitoring() (*PrincipalMonitoringDat
 	}
 
 	return data, nil
+}
+
+func (r *monitoringRepository) GetSchoolGrades(classID uint, subjectID uint) ([]SchoolGradeItem, error) {
+	var csList []models.ClassSubject
+	query := r.db.Preload("Class").Preload("Subject")
+	if classID > 0 {
+		query = query.Where("class_id = ?", classID)
+	}
+	if subjectID > 0 {
+		query = query.Where("subject_id = ?", subjectID)
+	}
+	if err := query.Order("class_id ASC, subject_id ASC").Find(&csList).Error; err != nil {
+		return nil, err
+	}
+
+	results := []SchoolGradeItem{}
+
+	for _, cs := range csList {
+		var students []models.Student
+		r.db.Where("class_id = ?", cs.ClassID).Order("name ASC").Find(&students)
+
+		for _, st := range students {
+			var taskAvg float64
+			r.db.Table("task_submissions").
+				Joins("JOIN tasks ON tasks.id = task_submissions.task_id").
+				Where("tasks.class_subject_id = ? AND task_submissions.student_id = ? AND task_submissions.score IS NOT NULL", cs.ID, st.ID).
+				Select("COALESCE(AVG(task_submissions.score), 0)").
+				Scan(&taskAvg)
+
+			var asmAvg float64
+			r.db.Table("assessment_submissions").
+				Joins("JOIN assessments ON assessments.id = assessment_submissions.assessment_id").
+				Where("assessments.class_subject_id = ? AND assessment_submissions.student_id = ? AND assessment_submissions.score IS NOT NULL", cs.ID, st.ID).
+				Select("COALESCE(AVG(assessment_submissions.score), 0)").
+				Scan(&asmAvg)
+
+			finalScore := (taskAvg + asmAvg) / 2.0
+			if taskAvg == 0 && asmAvg != 0 {
+				finalScore = asmAvg
+			} else if asmAvg == 0 && taskAvg != 0 {
+				finalScore = taskAvg
+			}
+
+			results = append(results, SchoolGradeItem{
+				StudentID:         st.ID,
+				StudentName:       st.Name,
+				StudentNISN:       st.NISN,
+				ClassID:           cs.ClassID,
+				ClassName:         cs.Class.Name,
+				SubjectID:         cs.SubjectID,
+				SubjectName:       cs.Subject.Name,
+				TaskAverage:       round(taskAvg, 1),
+				AssessmentAverage: round(asmAvg, 1),
+				FinalScore:        round(finalScore, 1),
+			})
+		}
+	}
+
+	return results, nil
 }

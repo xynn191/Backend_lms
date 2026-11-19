@@ -197,6 +197,9 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	curriculum.Use(middleware.RoleRequired(models.RoleCurriculum, models.RoleAdmin))
 	{
 		curriculum.GET("/monitoring", monitoringH.CurriculumMonitoring)
+		curriculum.GET("/grades", monitoringH.SchoolGrades)
+		curriculum.GET("/classes", classH.GetAll)
+		curriculum.GET("/subjects", subjectH.GetAll)
 	}
 
 	// ── Principal Routes ───────────────────────────────────────────────────────
@@ -205,6 +208,9 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	principal.Use(middleware.RoleRequired(models.RolePrincipal, models.RoleAdmin))
 	{
 		principal.GET("/monitoring", monitoringH.PrincipalMonitoring)
+		principal.GET("/grades", monitoringH.SchoolGrades)
+		principal.GET("/classes", classH.GetAll)
+		principal.GET("/subjects", subjectH.GetAll)
 	}
 
 	return r
