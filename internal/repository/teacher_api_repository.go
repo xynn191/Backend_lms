@@ -58,6 +58,7 @@ type TeacherApiRepository interface {
 	GetAssessmentByID(teacherID uint, id uint) (*models.Assessment, error)
 	CreateAssessment(a *models.Assessment) error
 	UpdateAssessment(a *models.Assessment) error
+	UpdateAssessmentSchedule(id uint, startTime, endTime time.Time, durationMinutes *int) error
 	DeleteAssessment(teacherID uint, id uint) error
 	PublishAssessment(teacherID uint, id uint, publish bool) error
 	GetAssessmentResults(teacherID uint, assessmentID uint) ([]models.AssessmentSubmission, error)
@@ -321,6 +322,17 @@ func (r *teacherApiRepository) UpdateAssessment(a *models.Assessment) error {
 
 		return tx.Save(a).Error
 	})
+}
+
+func (r *teacherApiRepository) UpdateAssessmentSchedule(id uint, startTime, endTime time.Time, durationMinutes *int) error {
+	updates := map[string]interface{}{
+		"start_time": startTime,
+		"end_time":   endTime,
+	}
+	if durationMinutes != nil && *durationMinutes > 0 {
+		updates["duration_minutes"] = *durationMinutes
+	}
+	return r.db.Model(&models.Assessment{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (r *teacherApiRepository) DeleteAssessment(teacherID uint, id uint) error {

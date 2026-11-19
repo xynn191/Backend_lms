@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/xynn191/Backend_lms/internal/models"
@@ -19,6 +20,7 @@ type CreateStudentDTO struct {
 }
 
 type UpdateStudentDTO struct {
+	Email   string `json:"email" binding:"omitempty,email"`
 	NISN    string `json:"nisn" binding:"required"`
 	Name    string `json:"name" binding:"required"`
 	Gender  string `json:"gender" binding:"required,oneof=L P"`
@@ -35,6 +37,7 @@ type CreateTeacherDTO struct {
 }
 
 type UpdateTeacherDTO struct {
+	Email       string `json:"email" binding:"omitempty,email"`
 	NIP         string `json:"nip"`
 	Name        string `json:"name" binding:"required"`
 	Gender      string `json:"gender" binding:"required,oneof=L P"`
@@ -50,6 +53,7 @@ type CreateStaffDTO struct {
 }
 
 type UpdateStaffDTO struct {
+	Email       string `json:"email" binding:"omitempty,email"`
 	NIP         string `json:"nip"`
 	Name        string `json:"name" binding:"required"`
 	PhoneNumber string `json:"phone_number"`
@@ -100,10 +104,11 @@ func hashPassword(password string) (string, error) {
 }
 
 func (s *userService) newUser(roleName, email, password string) (*models.User, error) {
-	if available, err := s.repo.IsEmailAvailable(email); err != nil {
+	trimmedEmail := strings.TrimSpace(strings.ToLower(email))
+	if available, err := s.repo.IsEmailAvailable(trimmedEmail); err != nil {
 		return nil, err
 	} else if !available {
-		return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", email)
+		return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", trimmedEmail)
 	}
 	hashed, err := hashPassword(password)
 	if err != nil {
@@ -116,7 +121,7 @@ func (s *userService) newUser(roleName, email, password string) (*models.User, e
 	return &models.User{
 		ID:       uuid.New().String(),
 		RoleID:   role.ID,
-		Email:    email,
+		Email:    trimmedEmail,
 		Password: hashed,
 		IsActive: true,
 	}, nil
@@ -133,6 +138,12 @@ func (s *userService) FindStudentByID(id uint) (*models.Student, error) {
 }
 
 func (s *userService) CreateStudent(dto *CreateStudentDTO) (*models.Student, error) {
+	if exists, err := s.repo.ClassExists(dto.ClassID); err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("kelas dengan ID %d tidak ditemukan di sistem", dto.ClassID)
+	}
+
 	if available, err := s.repo.IsNISNAvailable(dto.NISN); err != nil {
 		return nil, err
 	} else if !available {
@@ -159,6 +170,34 @@ func (s *userService) UpdateStudent(id uint, dto *UpdateStudentDTO) (*models.Stu
 	if err != nil {
 		return nil, err
 	}
+	if exists, err := s.repo.ClassExists(dto.ClassID); err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("kelas dengan ID %d tidak ditemukan di sistem", dto.ClassID)
+	}
+
+	if dto.NISN != student.NISN {
+		if available, err := s.repo.IsNISNAvailable(dto.NISN); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("NISN %q sudah terdaftar pada siswa aktif lain", dto.NISN)
+		}
+	}
+
+	trimmedEmail := strings.TrimSpace(strings.ToLower(dto.Email))
+	if trimmedEmail != "" && trimmedEmail != strings.ToLower(student.User.Email) {
+		if available, err := s.repo.IsEmailAvailableForUser(trimmedEmail, student.UserID); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", trimmedEmail)
+		}
+		if student.UserID != "" {
+			if err := s.repo.UpdateUserEmail(student.UserID, trimmedEmail); err != nil {
+				return nil, fmt.Errorf("gagal memperbarui email akun: %w", err)
+			}
+		}
+	}
+
 	student.NISN = dto.NISN
 	student.Name = dto.Name
 	student.Gender = dto.Gender
@@ -166,7 +205,7 @@ func (s *userService) UpdateStudent(id uint, dto *UpdateStudentDTO) (*models.Stu
 	if err := s.repo.UpdateStudent(student); err != nil {
 		return nil, err
 	}
-	return student, nil
+	return s.repo.FindStudentByID(id)
 }
 
 func (s *userService) DeleteStudent(id uint) error {
@@ -212,6 +251,28 @@ func (s *userService) UpdateTeacher(id uint, dto *UpdateTeacherDTO) (*models.Tea
 	if err != nil {
 		return nil, err
 	}
+	if dto.NIP != "" && dto.NIP != teacher.NIP {
+		if available, err := s.repo.IsNIPAvailable(dto.NIP); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("NIP %q sudah terdaftar pada pengguna aktif lain", dto.NIP)
+		}
+	}
+
+	trimmedEmail := strings.TrimSpace(strings.ToLower(dto.Email))
+	if trimmedEmail != "" && trimmedEmail != strings.ToLower(teacher.User.Email) {
+		if available, err := s.repo.IsEmailAvailableForUser(trimmedEmail, teacher.UserID); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", trimmedEmail)
+		}
+		if teacher.UserID != "" {
+			if err := s.repo.UpdateUserEmail(teacher.UserID, trimmedEmail); err != nil {
+				return nil, fmt.Errorf("gagal memperbarui email akun: %w", err)
+			}
+		}
+	}
+
 	teacher.NIP = dto.NIP
 	teacher.Name = dto.Name
 	teacher.Gender = dto.Gender
@@ -219,7 +280,7 @@ func (s *userService) UpdateTeacher(id uint, dto *UpdateTeacherDTO) (*models.Tea
 	if err := s.repo.UpdateTeacher(teacher); err != nil {
 		return nil, err
 	}
-	return teacher, nil
+	return s.repo.FindTeacherByID(id)
 }
 
 func (s *userService) DeleteTeacher(id uint) error {
@@ -260,13 +321,35 @@ func (s *userService) UpdateCurriculum(id uint, dto *UpdateStaffDTO) (*models.Cu
 	if err != nil {
 		return nil, err
 	}
+	if dto.NIP != "" && dto.NIP != curriculum.NIP {
+		if available, err := s.repo.IsNIPAvailable(dto.NIP); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("NIP %q sudah terdaftar pada pengguna aktif lain", dto.NIP)
+		}
+	}
+
+	trimmedEmail := strings.TrimSpace(strings.ToLower(dto.Email))
+	if trimmedEmail != "" && trimmedEmail != strings.ToLower(curriculum.User.Email) {
+		if available, err := s.repo.IsEmailAvailableForUser(trimmedEmail, curriculum.UserID); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", trimmedEmail)
+		}
+		if curriculum.UserID != "" {
+			if err := s.repo.UpdateUserEmail(curriculum.UserID, trimmedEmail); err != nil {
+				return nil, fmt.Errorf("gagal memperbarui email akun: %w", err)
+			}
+		}
+	}
+
 	curriculum.NIP = dto.NIP
 	curriculum.Name = dto.Name
 	curriculum.PhoneNumber = dto.PhoneNumber
 	if err := s.repo.UpdateCurriculum(curriculum); err != nil {
 		return nil, err
 	}
-	return curriculum, nil
+	return s.repo.FindCurriculumByID(id)
 }
 
 func (s *userService) DeleteCurriculum(id uint) error {
@@ -307,13 +390,35 @@ func (s *userService) UpdatePrincipal(id uint, dto *UpdateStaffDTO) (*models.Pri
 	if err != nil {
 		return nil, err
 	}
+	if dto.NIP != "" && dto.NIP != principal.NIP {
+		if available, err := s.repo.IsNIPAvailable(dto.NIP); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("NIP %q sudah terdaftar pada pengguna aktif lain", dto.NIP)
+		}
+	}
+
+	trimmedEmail := strings.TrimSpace(strings.ToLower(dto.Email))
+	if trimmedEmail != "" && trimmedEmail != strings.ToLower(principal.User.Email) {
+		if available, err := s.repo.IsEmailAvailableForUser(trimmedEmail, principal.UserID); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", trimmedEmail)
+		}
+		if principal.UserID != "" {
+			if err := s.repo.UpdateUserEmail(principal.UserID, trimmedEmail); err != nil {
+				return nil, fmt.Errorf("gagal memperbarui email akun: %w", err)
+			}
+		}
+	}
+
 	principal.NIP = dto.NIP
 	principal.Name = dto.Name
 	principal.PhoneNumber = dto.PhoneNumber
 	if err := s.repo.UpdatePrincipal(principal); err != nil {
 		return nil, err
 	}
-	return principal, nil
+	return s.repo.FindPrincipalByID(id)
 }
 
 func (s *userService) DeletePrincipal(id uint) error {

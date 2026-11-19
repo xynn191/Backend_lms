@@ -12,7 +12,7 @@ type Material struct {
 	ClassSubject   ClassSubject
 	Title          string `gorm:"type:varchar(200);not null"`
 	Content        string `gorm:"type:text"`
-	AttachmentURL  string `gorm:"type:varchar(255)"`
+	AttachmentURL  string `gorm:"type:text"`
 	IsPublished    bool   `gorm:"default:false"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

@@ -78,6 +78,12 @@ type UpdateAssessmentRequest struct {
 	Questions       []AssessmentQuestionRequest `json:"questions" binding:"required,min=1"`
 }
 
+type UpdateAssessmentScheduleRequest struct {
+	StartTime       time.Time `json:"start_time" binding:"required"`
+	EndTime         time.Time `json:"end_time" binding:"required"`
+	DurationMinutes *int      `json:"duration_minutes"`
+}
+
 type PublishRequest struct {
 	IsPublished bool `json:"is_published"`
 }
@@ -110,6 +116,7 @@ type TeacherApiService interface {
 	GetAssessmentByID(userID string, id uint) (*models.Assessment, error)
 	CreateAssessment(userID string, req *CreateAssessmentRequest) (*models.Assessment, error)
 	UpdateAssessment(userID string, id uint, req *UpdateAssessmentRequest) (*models.Assessment, error)
+	UpdateAssessmentSchedule(userID string, id uint, req *UpdateAssessmentScheduleRequest) (*models.Assessment, error)
 	DeleteAssessment(userID string, id uint) error
 	PublishAssessment(userID string, id uint, publish bool) error
 	GetAssessmentResults(userID string, assessmentID uint) ([]models.AssessmentSubmission, error)
@@ -450,6 +457,26 @@ func (s *teacherApiService) UpdateAssessment(userID string, id uint, req *Update
 	a.Questions = questions
 
 	if err := s.repo.UpdateAssessment(a); err != nil {
+		return nil, err
+	}
+	return s.repo.GetAssessmentByID(teacherID, id)
+}
+
+func (s *teacherApiService) UpdateAssessmentSchedule(userID string, id uint, req *UpdateAssessmentScheduleRequest) (*models.Assessment, error) {
+	teacherID, err := s.getTeacherID(userID)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.repo.GetAssessmentByID(teacherID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.EndTime.Before(req.StartTime) {
+		return nil, errors.New("waktu selesai harus setelah waktu mulai")
+	}
+
+	if err := s.repo.UpdateAssessmentSchedule(id, req.StartTime, req.EndTime, req.DurationMinutes); err != nil {
 		return nil, err
 	}
 	return s.repo.GetAssessmentByID(teacherID, id)

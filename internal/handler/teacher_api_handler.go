@@ -338,6 +338,26 @@ func (h *TeacherApiHandler) UpdateAssessment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": a})
 }
 
+func (h *TeacherApiHandler) UpdateAssessmentSchedule(c *gin.Context) {
+	userID := c.GetString("user_id")
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID tidak valid"})
+		return
+	}
+	var req service.UpdateAssessmentScheduleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	a, err := h.svc.UpdateAssessmentSchedule(userID, uint(id), &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": a, "message": "Jadwal assessment berhasil diperbarui"})
+}
+
 func (h *TeacherApiHandler) DeleteAssessment(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)

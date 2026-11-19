@@ -35,7 +35,7 @@ func (h *UserHandler) CreateStudent(c *gin.Context) {
 	}
 	data, err := h.svc.CreateStudent(&dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"message": "Siswa berhasil ditambahkan", "data": data})
@@ -50,7 +50,7 @@ func (h *UserHandler) UpdateStudent(c *gin.Context) {
 	}
 	data, err := h.svc.UpdateStudent(uint(id), &dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Data siswa berhasil diupdate", "data": data})
@@ -84,7 +84,7 @@ func (h *UserHandler) CreateTeacher(c *gin.Context) {
 	}
 	data, err := h.svc.CreateTeacher(&dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"message": "Guru berhasil ditambahkan", "data": data})
@@ -99,7 +99,7 @@ func (h *UserHandler) UpdateTeacher(c *gin.Context) {
 	}
 	data, err := h.svc.UpdateTeacher(uint(id), &dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Data guru berhasil diupdate", "data": data})
@@ -133,7 +133,7 @@ func (h *UserHandler) CreateCurriculum(c *gin.Context) {
 	}
 	data, err := h.svc.CreateCurriculum(&dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"message": "Tim kurikulum berhasil ditambahkan", "data": data})
@@ -148,7 +148,7 @@ func (h *UserHandler) UpdateCurriculum(c *gin.Context) {
 	}
 	data, err := h.svc.UpdateCurriculum(uint(id), &dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Data kurikulum berhasil diupdate", "data": data})
@@ -182,7 +182,7 @@ func (h *UserHandler) CreatePrincipal(c *gin.Context) {
 	}
 	data, err := h.svc.CreatePrincipal(&dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"message": "Kepala sekolah berhasil ditambahkan", "data": data})
@@ -197,7 +197,7 @@ func (h *UserHandler) UpdatePrincipal(c *gin.Context) {
 	}
 	data, err := h.svc.UpdatePrincipal(uint(id), &dto)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Data kepala sekolah berhasil diupdate", "data": data})

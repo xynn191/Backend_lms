@@ -15,6 +15,7 @@ import (
 
 func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	r := gin.Default()
+	_ = r.SetTrustedProxies(nil)
 	r.Use(cors())
 
 	// Static route for file uploads
@@ -164,6 +165,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		teacher.POST("/assessments", teacherApiH.CreateAssessment)
 		teacher.GET("/assessments/:id", teacherApiH.GetAssessmentByID)
 		teacher.PUT("/assessments/:id", teacherApiH.UpdateAssessment)
+		teacher.PATCH("/assessments/:id/schedule", teacherApiH.UpdateAssessmentSchedule)
 		teacher.DELETE("/assessments/:id", teacherApiH.DeleteAssessment)
 		teacher.PATCH("/assessments/:id/publish", teacherApiH.PublishAssessment)
 		teacher.GET("/assessments/:id/results", teacherApiH.AssessmentResults)

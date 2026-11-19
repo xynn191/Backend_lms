@@ -1,5 +1,57 @@
 # Veyora LMS Backend Project Tracker & Context
 
+## [SELESAI] Pembersihan Startup Migrations & Eliminasi Warning SQL Backend
+- [x] **Standardisasi Kolom NIP (`column:nip`)**:
+  - `internal/models/profiles.go`: Menambahkan tag eksplisit `gorm:"type:varchar(50);column:nip"` pada struct `Teacher`, `Curriculum`, dan `Principal`. Mencegah GORM membuat kolom default `n_ip` (penyebab Error 1072).
+- [x] **Migrasi Skema & Indeks Idempoten (`internal/models/migrate.go`)**:
+  - Menambahkan helper `columnExists(db, table, col)` dan `indexExists(db, table, idx)` berbasis `information_schema`.
+  - Migrasi otomatis jika kolom lama `n_ip` terdeteksi di tabel MySQL (`ALTER TABLE ... CHANGE COLUMN n_ip nip VARCHAR(50)`).
+  - Melakukan `DROP INDEX` hanya jika nama index lama benar-benar ditemukan di database (mengeliminasi Error 1091).
+  - Melakukan `CREATE UNIQUE INDEX` hanya jika index belum dibuat sebelumnya (mengeliminasi Error 1061).
+- [x] **Pembersihan Log Framework Gin (`internal/router/router.go`)**:
+  - Menambahkan `_ = r.SetTrustedProxies(nil)` untuk menghilangkan peringatan `You trusted all proxies, this is NOT safe`.
+- [x] Verifikasi build backend: `go build -o server main.go` dan `go test ./...` sukses dengan Exit Code 0.
+
+---
+
+## [SELESAI] Fitur Edit Email pada CRUD User Admin (Siswa, Guru, Kurikulum, Kepsek)
+- [x] **Dukungan Update Email pada DTO User**:
+  - `internal/service/user_service.go`: Menambahkan field `Email string json:"email" binding:"omitempty,email"` pada `UpdateStudentDTO`, `UpdateTeacherDTO`, dan `UpdateStaffDTO`.
+- [x] **Pemeriksaan Keunikan Email Aktif (`IsEmailAvailableForUser`)**:
+  - `internal/repository/user_repository.go`: Menambahkan method `IsEmailAvailableForUser(email string, excludeUserID string) (bool, error)` untuk memastikan email baru tidak bertabrakan dengan akun aktif lain, sekaligus memperbolehkan akun yang sedang diedit tetap mempertahankan emailnya sendiri tanpa false positive error.
+  - `internal/repository/user_repository.go`: Menambahkan method `UpdateUserEmail(userID string, email string) error` untuk memperbarui kolom `users.email` berdasarkan `user_id`.
+- [x] **Logika Pembaruan Email di Service**:
+  - `internal/service/user_service.go`: Pada `UpdateStudent`, `UpdateTeacher`, `UpdateCurriculum`, dan `UpdatePrincipal`, jika admin mengubah email pengguna, sistem memvalidasi ketersediaan email baru, menolak jika duplikat (`"email ... sudah digunakan oleh akun aktif lain"`), dan memperbarui email pada tabel `users`.
+  - Mengembalikan record data teranyar dengan relasi `User` yang telah diperbarui.
+- [x] Verifikasi build backend: `go build -o server main.go` dan `go test ./...` sukses dengan Exit Code 0.
+
+---
+
+## [SELESAI] Perbaikan Validasi User & Penanganan Error CRUD (Import Excel)
+- [x] **Pemeriksaan Keberadaan Kelas (`ClassExists`)**:
+  - `internal/repository/user_repository.go`: Menambahkan method `ClassExists(id uint) (bool, error)` untuk memvalidasi `class_id` sebelum data siswa disimpan.
+  - `internal/service/user_service.go`: Mencegah error raw MySQL constraint (Error 1452) pada `CreateStudent` dan `UpdateStudent`. Jika `class_id` tidak ada di database, sistem mengembalikan pesan deskriptif: *"kelas dengan ID X tidak ditemukan di sistem"*.
+- [x] **Standarisasi Status Code HTTP pada User Handler**:
+  - `internal/handler/user_handler.go`: Mengubah status error pada `CreateStudent`, `UpdateStudent`, `CreateTeacher`, `UpdateTeacher`, `CreateCurriculum`, `UpdateCurriculum`, `CreatePrincipal`, `UpdatePrincipal` dari `500 Internal Server Error` menjadi `400 Bad Request` dengan payload JSON `{"error": "..."}`.
+  - Dampak: Error validasi input, email duplikat, NISN/NIP duplikat, dan foreign key kelas kini mengembalikan status code dan pesan yang jelas bagi client/frontend saat impor massal Excel.
+- [x] Verifikasi build backend: `go build -o server main.go` sukses dengan Exit Code 0.
+
+---
+
+## [SELESAI] Multi-File Attachment Materi & Penjadwalan Assessment Fleksibel
+- [x] **Skema Database `materials.attachment_url` (`internal/models/learning.go`)**:
+  - Tipe kolom `AttachmentURL` ditingkatkan dari `varchar(255)` menjadi `text` untuk mendukung serialisasi multi-lampiran (JSON string array) beserta metadata nama file dan tipe file.
+- [x] **Endpoint Cepat Jadwal Assessment (`PATCH /api/teacher/assessments/:id/schedule`)**:
+  - `internal/handler/teacher_api_handler.go`: Menambahkan handler `UpdateAssessmentSchedule` untuk update `start_time`, `end_time`, dan `duration_minutes`.
+  - `internal/service/teacher_api_service.go`: Menambahkan validasi `EndTime > StartTime` tanpa memicu re-writing daftar soal.
+  - `internal/repository/teacher_api_repository.go`: Mengimplementasikan `UpdateAssessmentSchedule` menggunakan GORM updates parsial.
+  - `internal/router/router.go`: Mendaftarkan route `PATCH /assessments/:id/schedule`.
+- [x] **Proteksi Akses Soal Ujian Siswa Sebelum Jadwal Dimulai**:
+  - `internal/repository/student_api_repository.go`: Pada `GetAssessmentByID`, akses soal otomatis ditolak jika `time.Now().Before(a.StartTime)` dan siswa belum memiliki submission (mencegah kebocoran soal sebelum jam ujian dibuka).
+- [x] Verifikasi build backend: `go build -o server main.go` sukses dengan Exit Code 0.
+
+---
+
 ## [SELESAI] Database Migration & Schema Fixes
 - [x] **Soft Delete & Partial Unique Index Architecture (Re-create Account with Fresh PK)**:
   - `internal/models/auth.go` & `internal/models/profiles.go`: Melepaskan tag rigid `;unique` yang sebelumnya memblokir soft-deleted records pada kolom `users.email`, `teachers.nip`, `students.nisn`, `curriculums.nip`, dan `principals.nip`.

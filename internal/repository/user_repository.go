@@ -36,9 +36,12 @@ type UserRepository interface {
 	DeletePrincipal(id uint) error
 
 	// Active Uniqueness Checks
+	UpdateUserEmail(userID string, email string) error
 	IsEmailAvailable(email string) (bool, error)
+	IsEmailAvailableForUser(email string, excludeUserID string) (bool, error)
 	IsNIPAvailable(nip string) (bool, error)
 	IsNISNAvailable(nisn string) (bool, error)
+	ClassExists(id uint) (bool, error)
 }
 
 type userRepository struct {
@@ -235,10 +238,21 @@ func (r *userRepository) DeletePrincipal(id uint) error {
 
 // ── Active Uniqueness Availability Checks ─────────────────────────────────────
 
+func (r *userRepository) UpdateUserEmail(userID string, email string) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("email", email).Error
+}
+
 func (r *userRepository) IsEmailAvailable(email string) (bool, error) {
+	return r.IsEmailAvailableForUser(email, "")
+}
+
+func (r *userRepository) IsEmailAvailableForUser(email string, excludeUserID string) (bool, error) {
 	var count int64
-	// GORM automatically adds `WHERE deleted_at IS NULL`
-	err := r.db.Model(&models.User{}).Where("email = ?", email).Count(&count).Error
+	query := r.db.Model(&models.User{}).Where("email = ?", email)
+	if excludeUserID != "" {
+		query = query.Where("id != ?", excludeUserID)
+	}
+	err := query.Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -263,4 +277,13 @@ func (r *userRepository) IsNISNAvailable(nisn string) (bool, error) {
 		return false, err
 	}
 	return count == 0, nil
+}
+
+func (r *userRepository) ClassExists(id uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Class{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

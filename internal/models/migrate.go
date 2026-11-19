@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"log"
 
 	"gorm.io/gorm"
@@ -37,6 +38,18 @@ func AutoMigrate(db *gorm.DB) error {
 	return nil
 }
 
+func columnExists(db *gorm.DB, tableName, columnName string) bool {
+	var count int64
+	db.Raw("SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?", tableName, columnName).Scan(&count)
+	return count > 0
+}
+
+func indexExists(db *gorm.DB, tableName, indexName string) bool {
+	var count int64
+	db.Raw("SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?", tableName, indexName).Scan(&count)
+	return count > 0
+}
+
 // setupActiveUniqueIndexes creates partial/conditional unique indexes ensuring that
 // unique constraints (email, NIP, NISN) apply only to active records (where deleted_at IS NULL).
 // This preserves soft-deleted records in the database while allowing new accounts with
@@ -46,26 +59,53 @@ func setupActiveUniqueIndexes(db *gorm.DB) {
 
 	switch dial {
 	case "mysql":
-		// Drop old single-column unique indexes if they exist
-		_ = db.Exec("ALTER TABLE users DROP INDEX email").Error
-		_ = db.Exec("ALTER TABLE users DROP INDEX uni_users_email").Error
-		_ = db.Exec("ALTER TABLE curriculums DROP INDEX nip").Error
-		_ = db.Exec("ALTER TABLE curriculums DROP INDEX uni_curriculums_nip").Error
-		_ = db.Exec("ALTER TABLE teachers DROP INDEX nip").Error
-		_ = db.Exec("ALTER TABLE teachers DROP INDEX uni_teachers_nip").Error
-		_ = db.Exec("ALTER TABLE principals DROP INDEX nip").Error
-		_ = db.Exec("ALTER TABLE principals DROP INDEX uni_principals_nip").Error
-		_ = db.Exec("ALTER TABLE students DROP INDEX nisn").Error
-		_ = db.Exec("ALTER TABLE students DROP INDEX uni_students_nisn").Error
+		// 1. Migrasi kolom lama n_ip ke nip jika diperlukan
+		tablesWithNIP := []string{"teachers", "curriculums", "principals"}
+		for _, t := range tablesWithNIP {
+			if columnExists(db, t, "n_ip") && !columnExists(db, t, "nip") {
+				_ = db.Exec(fmt.Sprintf("ALTER TABLE %s CHANGE COLUMN n_ip nip VARCHAR(50)", t)).Error
+			}
+		}
 
-		// In MySQL 8.0.13+, functional expression index:
-		// When deleted_at IS NULL, the expression is 1 (uniqueness enforced among active rows).
-		// When deleted_at IS NOT NULL, the expression is NULL (ignored by MySQL unique index, allowing multiple deleted entries).
-		_ = db.Exec("CREATE UNIQUE INDEX idx_users_email_active ON users (email, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))").Error
-		_ = db.Exec("CREATE UNIQUE INDEX idx_curriculums_nip_active ON curriculums (nip, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))").Error
-		_ = db.Exec("CREATE UNIQUE INDEX idx_teachers_nip_active ON teachers (nip, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))").Error
-		_ = db.Exec("CREATE UNIQUE INDEX idx_principals_nip_active ON principals (nip, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))").Error
-		_ = db.Exec("CREATE UNIQUE INDEX idx_students_nisn_active ON students (nisn, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))").Error
+		// 2. Drop old single-column unique indexes hanya jika memang ada di database
+		dropOldIndex := func(table, idx string) {
+			if indexExists(db, table, idx) {
+				_ = db.Exec(fmt.Sprintf("ALTER TABLE %s DROP INDEX %s", table, idx)).Error
+			}
+		}
+
+		dropOldIndex("users", "email")
+		dropOldIndex("users", "uni_users_email")
+		dropOldIndex("curriculums", "nip")
+		dropOldIndex("curriculums", "uni_curriculums_nip")
+		dropOldIndex("teachers", "nip")
+		dropOldIndex("teachers", "uni_teachers_nip")
+		dropOldIndex("principals", "nip")
+		dropOldIndex("principals", "uni_principals_nip")
+		dropOldIndex("students", "nisn")
+		dropOldIndex("students", "uni_students_nisn")
+
+		// 3. Buat partial active unique index hanya jika belum dibuat sebelumnya
+		createIndexIfMissing := func(table, idx, query string) {
+			if !indexExists(db, table, idx) {
+				_ = db.Exec(query).Error
+			}
+		}
+
+		createIndexIfMissing("users", "idx_users_email_active",
+			"CREATE UNIQUE INDEX idx_users_email_active ON users (email, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))")
+
+		createIndexIfMissing("curriculums", "idx_curriculums_nip_active",
+			"CREATE UNIQUE INDEX idx_curriculums_nip_active ON curriculums (nip, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))")
+
+		createIndexIfMissing("teachers", "idx_teachers_nip_active",
+			"CREATE UNIQUE INDEX idx_teachers_nip_active ON teachers (nip, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))")
+
+		createIndexIfMissing("principals", "idx_principals_nip_active",
+			"CREATE UNIQUE INDEX idx_principals_nip_active ON principals (nip, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))")
+
+		createIndexIfMissing("students", "idx_students_nisn_active",
+			"CREATE UNIQUE INDEX idx_students_nisn_active ON students (nisn, ((CASE WHEN deleted_at IS NULL THEN 1 ELSE NULL END)))")
 
 	case "postgres":
 		_ = db.Exec("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key").Error

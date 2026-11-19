@@ -199,6 +199,11 @@ func (r *studentApiRepository) GetAssessmentByID(classID uint, studentID uint, i
 	item := StudentAssessmentItem{Assessment: a}
 	if err == nil {
 		item.Submission = &sub
+	} else {
+		now := time.Now()
+		if now.Before(a.StartTime) {
+			return nil, errors.New("ujian belum dimulai. Jadwal pelaksanaan: " + a.StartTime.Format("02 Jan 2006 15:04"))
+		}
 	}
 	return &item, nil
 }
