@@ -12,3 +12,8 @@ coverage.out
 .DS_Store
 .idea/
 .vscode/
+
+# Uploads and temporary test files
+uploads/
+internal/test/uploads/
+

@@ -5,8 +5,24 @@ import (
 	"gorm.io/gorm"
 )
 
+type SuperadminStats struct {
+	TotalAdmin     int64 `json:"total_admin"`
+	TotalSiswa     int64 `json:"total_siswa"`
+	TotalGuru      int64 `json:"total_guru"`
+	TotalKurikulum int64 `json:"total_kurikulum"`
+	TotalKepsek    int64 `json:"total_kepsek"`
+	TotalUsers     int64 `json:"total_users"`
+}
+
 type UserRepository interface {
 	FindRoleByName(name string) (*models.Role, error)
+	// Admins
+	GetAllAdmins() ([]models.Admin, error)
+	FindAdminByID(id uint) (*models.Admin, error)
+	CreateUserWithAdmin(user *models.User, admin *models.Admin) error
+	UpdateAdmin(admin *models.Admin) error
+	DeleteAdmin(id uint) error
+
 	// Students
 	GetAllStudents() ([]models.Student, error)
 	FindStudentByID(id uint) (*models.Student, error)
@@ -42,6 +58,9 @@ type UserRepository interface {
 	IsNIPAvailable(nip string) (bool, error)
 	IsNISNAvailable(nisn string) (bool, error)
 	ClassExists(id uint) (bool, error)
+
+	// Superadmin Dashboard
+	GetSuperadminDashboardStats() (*SuperadminStats, error)
 }
 
 type userRepository struct {
@@ -58,6 +77,50 @@ func (r *userRepository) FindRoleByName(name string) (*models.Role, error) {
 		return nil, err
 	}
 	return &role, nil
+}
+
+// ── Admins ───────────────────────────────────────────────────────────────────
+
+func (r *userRepository) GetAllAdmins() ([]models.Admin, error) {
+	var admins []models.Admin
+	err := r.db.Preload("User").Find(&admins).Error
+	return admins, err
+}
+
+func (r *userRepository) FindAdminByID(id uint) (*models.Admin, error) {
+	var admin models.Admin
+	err := r.db.Preload("User").First(&admin, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &admin, nil
+}
+
+func (r *userRepository) CreateUserWithAdmin(user *models.User, admin *models.Admin) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		admin.UserID = user.ID
+		return tx.Create(admin).Error
+	})
+}
+
+func (r *userRepository) UpdateAdmin(admin *models.Admin) error {
+	return r.db.Save(admin).Error
+}
+
+func (r *userRepository) DeleteAdmin(id uint) error {
+	var admin models.Admin
+	if err := r.db.First(&admin, id).Error; err != nil {
+		return err
+	}
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.User{}, "id = ?", admin.UserID).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&admin).Error
+	})
 }
 
 // ── Students ──────────────────────────────────────────────────────────────────
@@ -286,4 +349,27 @@ func (r *userRepository) ClassExists(id uint) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// ── Superadmin Dashboard Stats ────────────────────────────────────────────────
+
+func (r *userRepository) GetSuperadminDashboardStats() (*SuperadminStats, error) {
+	var stats SuperadminStats
+	if err := r.db.Model(&models.Admin{}).Count(&stats.TotalAdmin).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&models.Student{}).Count(&stats.TotalSiswa).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&models.Teacher{}).Count(&stats.TotalGuru).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&models.Curriculum{}).Count(&stats.TotalKurikulum).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(&models.Principal{}).Count(&stats.TotalKepsek).Error; err != nil {
+		return nil, err
+	}
+	stats.TotalUsers = stats.TotalAdmin + stats.TotalSiswa + stats.TotalGuru + stats.TotalKurikulum + stats.TotalKepsek
+	return &stats, nil
 }

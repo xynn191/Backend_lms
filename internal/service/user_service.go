@@ -10,6 +10,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type CreateAdminDTO struct {
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=6"`
+	Name        string `json:"name" binding:"required"`
+	PhoneNumber string `json:"phone_number"`
+}
+
+type UpdateAdminDTO struct {
+	Email       string `json:"email" binding:"omitempty,email"`
+	Name        string `json:"name" binding:"required"`
+	PhoneNumber string `json:"phone_number"`
+}
+
 type CreateStudentDTO struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
@@ -60,6 +73,13 @@ type UpdateStaffDTO struct {
 }
 
 type UserService interface {
+	// Admins
+	GetAllAdmins() ([]models.Admin, error)
+	FindAdminByID(id uint) (*models.Admin, error)
+	CreateAdmin(dto *CreateAdminDTO) (*models.Admin, error)
+	UpdateAdmin(id uint, dto *UpdateAdminDTO) (*models.Admin, error)
+	DeleteAdmin(id uint) error
+
 	// Students
 	GetAllStudents() ([]models.Student, error)
 	FindStudentByID(id uint) (*models.Student, error)
@@ -85,6 +105,9 @@ type UserService interface {
 	CreatePrincipal(dto *CreateStaffDTO) (*models.Principal, error)
 	UpdatePrincipal(id uint, dto *UpdateStaffDTO) (*models.Principal, error)
 	DeletePrincipal(id uint) error
+
+	// Superadmin Dashboard
+	GetSuperadminDashboardStats() (*repository.SuperadminStats, error)
 }
 
 type userService struct {
@@ -423,4 +446,67 @@ func (s *userService) UpdatePrincipal(id uint, dto *UpdateStaffDTO) (*models.Pri
 
 func (s *userService) DeletePrincipal(id uint) error {
 	return s.repo.DeletePrincipal(id)
+}
+
+// ── Admins ───────────────────────────────────────────────────────────────────
+
+func (s *userService) GetAllAdmins() ([]models.Admin, error) {
+	return s.repo.GetAllAdmins()
+}
+
+func (s *userService) FindAdminByID(id uint) (*models.Admin, error) {
+	return s.repo.FindAdminByID(id)
+}
+
+func (s *userService) CreateAdmin(dto *CreateAdminDTO) (*models.Admin, error) {
+	user, err := s.newUser(models.RoleAdmin, dto.Email, dto.Password)
+	if err != nil {
+		return nil, err
+	}
+	admin := &models.Admin{
+		Name:        dto.Name,
+		PhoneNumber: dto.PhoneNumber,
+	}
+	if err := s.repo.CreateUserWithAdmin(user, admin); err != nil {
+		return nil, err
+	}
+	return admin, nil
+}
+
+func (s *userService) UpdateAdmin(id uint, dto *UpdateAdminDTO) (*models.Admin, error) {
+	admin, err := s.repo.FindAdminByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	trimmedEmail := strings.TrimSpace(strings.ToLower(dto.Email))
+	if trimmedEmail != "" && trimmedEmail != strings.ToLower(admin.User.Email) {
+		if available, err := s.repo.IsEmailAvailableForUser(trimmedEmail, admin.UserID); err != nil {
+			return nil, err
+		} else if !available {
+			return nil, fmt.Errorf("email %q sudah digunakan oleh akun aktif lain", trimmedEmail)
+		}
+		if admin.UserID != "" {
+			if err := s.repo.UpdateUserEmail(admin.UserID, trimmedEmail); err != nil {
+				return nil, fmt.Errorf("gagal memperbarui email akun: %w", err)
+			}
+		}
+	}
+
+	admin.Name = dto.Name
+	admin.PhoneNumber = dto.PhoneNumber
+	if err := s.repo.UpdateAdmin(admin); err != nil {
+		return nil, err
+	}
+	return s.repo.FindAdminByID(id)
+}
+
+func (s *userService) DeleteAdmin(id uint) error {
+	return s.repo.DeleteAdmin(id)
+}
+
+// ── Superadmin Dashboard Stats ────────────────────────────────────────────────
+
+func (s *userService) GetSuperadminDashboardStats() (*repository.SuperadminStats, error) {
+	return s.repo.GetSuperadminDashboardStats()
 }

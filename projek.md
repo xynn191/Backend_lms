@@ -1,5 +1,51 @@
 # Veyora LMS Backend Project Tracker & Context
 
+## [SELESAI] Penjabaran Nama Guru Pengampu Mapel (`SubjectMonitoringItem.Teachers`)
+- [x] **Perbaikan Tag Mapping GORM (`internal/repository/monitoring_repository.go`)**:
+  - Menambahkan tag mapping eksplisit `gorm:"column:id"` dan `gorm:"column:name"` pada struct `SubjectTeacherInfo` agar GORM sukses memetakan hasil query SQL `DISTINCT teachers.id, teachers.name, teachers.nip` ke struct Go tanpa menghasilkan string kosong.
+- [x] **Skema DTO Guru Pengampu (`SubjectTeacherInfo`) & Integrasi Kepala Sekolah**:
+  - Memperbarui `SubjectMonitoringItem` dengan field `Teachers []SubjectTeacherInfo` dan `TeacherCount int64`.
+  - Memperbarui `PrincipalMonitoringData` dengan menyertakan `SubjectStats []SubjectMonitoringItem` agar Kepala Sekolah dan Kurikulum mendapatkan data yang identik.
+- [x] **Query Relasi Penugasan Guru per Mata Pelajaran (`monitoringRepository.getSubjectStats`)**:
+  - Mengimplementasikan query `DISTINCT` yang mengambil seluruh guru yang ditugaskan ke setiap mapel melalui tabel relasi `class_subjects`.
+  - Mendukung kondisi multi-guru (jika suatu mapel diajar oleh lebih dari 1 guru di kelas-kelas berbeda, semua guru dikembalikan dalam array `teachers`).
+- [x] **Unit Testing & Kompilasi Binary (`internal/test/monitoring_test.go`, `server`)**:
+  - Menambahkan unit test `TestSubjectTeachersInMonitoring` (PASS) yang menguji pemetaan nama guru pengampu mapel.
+  - Mengompilasi binary `server` terbaru dengan `go build -o server .`.
+
+---
+
+## [SELESAI] Hidden Role "Superadmin" (Manajemen Pengguna Murni & Proteksi RBAC Eksklusif)
+- [x] **Konstanta & Seeding Role Superadmin (`internal/models/auth.go`, `internal/models/seed.go`)**:
+  - Menambahkan konstanta `RoleSuperadmin = "superadmin"` dan mendaftarkannya ke slice `SupportedRoles`.
+  - Mendaftarkan Role ID 6 untuk `RoleSuperadmin` pada `seedRoles(db)`.
+  - Mengimplementasikan `seedSuperadminUser(db)` dengan kredensial default `superadmin@veyora.id` / `superadmin123`.
+- [x] **Repository CRUD Admin & Agregasi 5 Pengguna (`internal/repository/user_repository.go`)**:
+  - Menambahkan method `GetAllAdmins()`, `FindAdminByID()`, `CreateUserWithAdmin()`, `UpdateAdmin()`, dan `DeleteAdmin()`.
+  - Mengimplementasikan `GetSuperadminDashboardStats()` yang menghitung agregasi riil 5 entitas: Administrator, Siswa, Guru, Tim Kurikulum, dan Kepala Sekolah beserta total pengguna aktif.
+- [x] **Service & DTO Admin (`internal/service/user_service.go`)**:
+  - Menambahkan DTO `CreateAdminDTO` dan `UpdateAdminDTO`.
+  - Menambahkan method service `GetAllAdmins`, `CreateAdmin`, `UpdateAdmin`, `DeleteAdmin`, dan `GetSuperadminDashboardStats`.
+- [x] **Handler & Rute RBAC Superadmin (`internal/handler/user_handler.go`, `internal/router/router.go`)**:
+  - Mendaftarkan grup rute eksklusif `/api/superadmin` terproteksi `middleware.RoleRequired(models.RoleSuperadmin)`:
+    - `GET /api/superadmin/dashboard` (Statistik 5 pengguna)
+    - `GET /api/superadmin/admins`, `POST /api/superadmin/admins`, `PUT /api/superadmin/admins/:id`, `DELETE /api/superadmin/admins/:id`
+  - Membuka akses manajemen user sekolah (`/api/admin/students`, `/api/admin/teachers`, `/api/admin/curriculums`, `/api/admin/principals`, serta read-only `/api/admin/classes`) untuk `RoleAdmin` dan `RoleSuperadmin`.
+  - Menolak akses `RoleSuperadmin` terhadap seluruh master data kurikulum (`/api/admin/majors`, `/api/admin/subjects`, write kelas, penugasan) dengan `403 Forbidden`.
+  - Menolak akses `RoleAdmin` terhadap `/api/superadmin/*` dengan `403 Forbidden`.
+- [x] **Unit Testing RBAC Superadmin (`internal/test/superadmin_rbac_test.go`)**:
+  - Memvalidasi 6 skenario pengujian komprehensif (akses dashboard, pencegahan akses admin biasa ke dashboard/CRUD admin, pembuatan admin baru, pencegahan akses superadmin ke master data jurusan, dan izin akses ke daftar siswa) dengan status PASS 100%.
+- [x] Verifikasi build backend: `go test ./...` sukses dengan Exit Code 0.
+
+---
+
+## [SELESAI] Dukungan Multi-File & Screenshot Lampiran Tugas Guru (`Task.AttachmentURL text`)
+- [x] **Peningkatan Skema Database `tasks.attachment_url` (`internal/models/learning.go`)**:
+  - Kolom `AttachmentURL` pada struct `Task` ditingkatkan dari `varchar(255)` menjadi `text` untuk mendukung serialisasi JSON array multi-file lampiran dokumen dan gambar tangkapan layar (screenshot).
+- [x] Verifikasi build backend: `go build -o server main.go` dan `go test ./...` sukses dengan Exit Code 0.
+
+---
+
 ## [SELESAI] Isolasi Route RBAC & Integrasi Aktivitas Guru untuk Kurikulum & Kepala Sekolah
 - [x] **Aktivitas Guru pada Endpoint Kurikulum (`TeacherActivityItem`)**:
   - `internal/repository/monitoring_repository.go`: Menambahkan field `TeacherActivity []TeacherActivityItem` pada struct `CurriculumMonitoringData`.

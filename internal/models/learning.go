@@ -25,7 +25,7 @@ type Task struct {
 	ClassSubject   ClassSubject
 	Title          string    `gorm:"type:varchar(200);not null"`
 	Description    string    `gorm:"type:text"`
-	AttachmentURL  string    `gorm:"type:varchar(255)"`
+	AttachmentURL  string    `gorm:"type:text"`
 	AttachmentLink string    `gorm:"type:varchar(500)"`
 	DueDate        time.Time
 	IsPublished    bool      `gorm:"default:false"`

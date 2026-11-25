@@ -75,62 +75,87 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// ── Admin Routes ───────────────────────────────────────────────────────────
 	admin := api.Group("/admin")
 	admin.Use(middleware.AuthRequired(cfg.JWTSecret))
-	admin.Use(middleware.RoleRequired(models.RoleAdmin))
 	{
-		// Dashboard
-		admin.GET("/dashboard", adminH.Dashboard)
+		// Strict Admin Only (Dashboard & Master Data)
+		adminOnly := admin.Group("/")
+		adminOnly.Use(middleware.RoleRequired(models.RoleAdmin))
+		{
+			// Dashboard
+			adminOnly.GET("/dashboard", adminH.Dashboard)
 
-		// Master Data: Jurusan
-		admin.GET("/majors", majorH.GetAll)
-		admin.POST("/majors", majorH.Create)
-		admin.GET("/majors/:id", majorH.GetByID)
-		admin.PUT("/majors/:id", majorH.Update)
-		admin.DELETE("/majors/:id", majorH.Delete)
+			// Master Data: Jurusan
+			adminOnly.GET("/majors", majorH.GetAll)
+			adminOnly.POST("/majors", majorH.Create)
+			adminOnly.GET("/majors/:id", majorH.GetByID)
+			adminOnly.PUT("/majors/:id", majorH.Update)
+			adminOnly.DELETE("/majors/:id", majorH.Delete)
 
-		// Master Data: Kelas
-		admin.GET("/classes", classH.GetAll)
-		admin.POST("/classes", classH.Create)
-		admin.GET("/classes/:id", classH.GetByID)
-		admin.PUT("/classes/:id", classH.Update)
-		admin.DELETE("/classes/:id", classH.Delete)
+			// Master Data: Kelas (Write operations)
+			adminOnly.POST("/classes", classH.Create)
+			adminOnly.PUT("/classes/:id", classH.Update)
+			adminOnly.DELETE("/classes/:id", classH.Delete)
 
-		// Master Data: Mata Pelajaran
-		admin.GET("/subjects", subjectH.GetAll)
-		admin.POST("/subjects", subjectH.Create)
-		admin.GET("/subjects/:id", subjectH.GetByID)
-		admin.PUT("/subjects/:id", subjectH.Update)
-		admin.DELETE("/subjects/:id", subjectH.Delete)
+			// Master Data: Mata Pelajaran
+			adminOnly.GET("/subjects", subjectH.GetAll)
+			adminOnly.POST("/subjects", subjectH.Create)
+			adminOnly.GET("/subjects/:id", subjectH.GetByID)
+			adminOnly.PUT("/subjects/:id", subjectH.Update)
+			adminOnly.DELETE("/subjects/:id", subjectH.Delete)
 
-		// Penugasan Guru (ClassSubject)
-		admin.GET("/class-subjects", classSubjectH.GetAll)
-		admin.POST("/class-subjects", classSubjectH.Create)
-		admin.GET("/class-subjects/:id", classSubjectH.GetByID)
-		admin.PUT("/class-subjects/:id", classSubjectH.Update)
-		admin.DELETE("/class-subjects/:id", classSubjectH.Delete)
+			// Penugasan Guru (ClassSubject)
+			adminOnly.GET("/class-subjects", classSubjectH.GetAll)
+			adminOnly.POST("/class-subjects", classSubjectH.Create)
+			adminOnly.GET("/class-subjects/:id", classSubjectH.GetByID)
+			adminOnly.PUT("/class-subjects/:id", classSubjectH.Update)
+			adminOnly.DELETE("/class-subjects/:id", classSubjectH.Delete)
+		}
 
-		// Manajemen User: Siswa
-		admin.GET("/students", userH.GetAllStudents)
-		admin.POST("/students", userH.CreateStudent)
-		admin.PUT("/students/:id", userH.UpdateStudent)
-		admin.DELETE("/students/:id", userH.DeleteStudent)
+		// User Management & Shared Lookups (Admin & Superadmin)
+		userMgmt := admin.Group("/")
+		userMgmt.Use(middleware.RoleRequired(models.RoleAdmin, models.RoleSuperadmin))
+		{
+			// Read classes for student form dropdowns
+			userMgmt.GET("/classes", classH.GetAll)
+			userMgmt.GET("/classes/:id", classH.GetByID)
 
-		// Manajemen User: Guru
-		admin.GET("/teachers", userH.GetAllTeachers)
-		admin.POST("/teachers", userH.CreateTeacher)
-		admin.PUT("/teachers/:id", userH.UpdateTeacher)
-		admin.DELETE("/teachers/:id", userH.DeleteTeacher)
+			// Manajemen User: Siswa
+			userMgmt.GET("/students", userH.GetAllStudents)
+			userMgmt.POST("/students", userH.CreateStudent)
+			userMgmt.PUT("/students/:id", userH.UpdateStudent)
+			userMgmt.DELETE("/students/:id", userH.DeleteStudent)
 
-		// Manajemen User: Kurikulum
-		admin.GET("/curriculums", userH.GetAllCurriculums)
-		admin.POST("/curriculums", userH.CreateCurriculum)
-		admin.PUT("/curriculums/:id", userH.UpdateCurriculum)
-		admin.DELETE("/curriculums/:id", userH.DeleteCurriculum)
+			// Manajemen User: Guru
+			userMgmt.GET("/teachers", userH.GetAllTeachers)
+			userMgmt.POST("/teachers", userH.CreateTeacher)
+			userMgmt.PUT("/teachers/:id", userH.UpdateTeacher)
+			userMgmt.DELETE("/teachers/:id", userH.DeleteTeacher)
 
-		// Manajemen User: Kepala Sekolah
-		admin.GET("/principals", userH.GetAllPrincipals)
-		admin.POST("/principals", userH.CreatePrincipal)
-		admin.PUT("/principals/:id", userH.UpdatePrincipal)
-		admin.DELETE("/principals/:id", userH.DeletePrincipal)
+			// Manajemen User: Kurikulum
+			userMgmt.GET("/curriculums", userH.GetAllCurriculums)
+			userMgmt.POST("/curriculums", userH.CreateCurriculum)
+			userMgmt.PUT("/curriculums/:id", userH.UpdateCurriculum)
+			userMgmt.DELETE("/curriculums/:id", userH.DeleteCurriculum)
+
+			// Manajemen User: Kepala Sekolah
+			userMgmt.GET("/principals", userH.GetAllPrincipals)
+			userMgmt.POST("/principals", userH.CreatePrincipal)
+			userMgmt.PUT("/principals/:id", userH.UpdatePrincipal)
+			userMgmt.DELETE("/principals/:id", userH.DeletePrincipal)
+		}
+	}
+
+	// ── Superadmin Routes (Strictly User Governance & Admin CRUD) ──────────────
+	superadmin := api.Group("/superadmin")
+	superadmin.Use(middleware.AuthRequired(cfg.JWTSecret))
+	superadmin.Use(middleware.RoleRequired(models.RoleSuperadmin))
+	{
+		superadmin.GET("/dashboard", userH.GetSuperadminStats)
+
+		// Manajemen User: Administrator Sekolah
+		superadmin.GET("/admins", userH.GetAllAdmins)
+		superadmin.POST("/admins", userH.CreateAdmin)
+		superadmin.PUT("/admins/:id", userH.UpdateAdmin)
+		superadmin.DELETE("/admins/:id", userH.DeleteAdmin)
 	}
 
 	// ── Teacher Routes ─────────────────────────────────────────────────────────

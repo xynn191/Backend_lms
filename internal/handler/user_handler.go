@@ -211,3 +211,63 @@ func (h *UserHandler) DeletePrincipal(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Kepala sekolah berhasil dihapus"})
 }
+
+// ── Admins ───────────────────────────────────────────────────────────────────
+
+func (h *UserHandler) GetAllAdmins(c *gin.Context) {
+	data, err := h.svc.GetAllAdmins()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+func (h *UserHandler) CreateAdmin(c *gin.Context) {
+	var dto service.CreateAdminDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	data, err := h.svc.CreateAdmin(&dto)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Administrator berhasil ditambahkan", "data": data})
+}
+
+func (h *UserHandler) UpdateAdmin(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	var dto service.UpdateAdminDTO
+	if err := c.ShouldBindJSON(&dto); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	data, err := h.svc.UpdateAdmin(uint(id), &dto)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Data administrator berhasil diupdate", "data": data})
+}
+
+func (h *UserHandler) DeleteAdmin(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	if err := h.svc.DeleteAdmin(uint(id)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Administrator berhasil dihapus"})
+}
+
+// ── Superadmin Dashboard ──────────────────────────────────────────────────────
+
+func (h *UserHandler) GetSuperadminStats(c *gin.Context) {
+	stats, err := h.svc.GetSuperadminDashboardStats()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": stats})
+}

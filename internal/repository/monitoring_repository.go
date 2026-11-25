@@ -18,14 +18,21 @@ type ClassProgressItem struct {
 	AverageScore    float64 `json:"average_score"`
 }
 
+type SubjectTeacherInfo struct {
+	TeacherID   uint   `json:"teacher_id" gorm:"column:id"`
+	TeacherName string `json:"teacher_name" gorm:"column:name"`
+	NIP         string `json:"nip" gorm:"column:nip"`
+}
+
 type SubjectMonitoringItem struct {
-	SubjectID     uint    `json:"subject_id"`
-	SubjectCode   string  `json:"subject_code"`
-	SubjectName   string  `json:"subject_name"`
-	TeacherCount  int64   `json:"teacher_count"`
-	MaterialCount int64   `json:"material_count"`
-	TaskCount     int64   `json:"task_count"`
-	AverageScore  float64 `json:"average_score"`
+	SubjectID     uint                 `json:"subject_id"`
+	SubjectCode   string               `json:"subject_code"`
+	SubjectName   string               `json:"subject_name"`
+	TeacherCount  int64                `json:"teacher_count"`
+	Teachers      []SubjectTeacherInfo `json:"teachers"`
+	MaterialCount int64                `json:"material_count"`
+	TaskCount     int64                `json:"task_count"`
+	AverageScore  float64              `json:"average_score"`
 }
 
 type CurriculumMonitoringData struct {
@@ -62,18 +69,19 @@ type TeacherActivityItem struct {
 }
 
 type PrincipalMonitoringData struct {
-	TotalStudents         int64                 `json:"total_students"`
-	TotalTeachers         int64                 `json:"total_teachers"`
-	TotalClasses          int64                 `json:"total_classes"`
-	TotalMajors           int64                 `json:"total_majors"`
-	TotalMaterials        int64                 `json:"total_materials"`
-	TotalTasks            int64                 `json:"total_tasks"`
-	TotalAssessments      int64                 `json:"total_assessments"`
-	AcademicParticipation float64               `json:"academic_participation"`
-	TeacherEffectiveness  float64               `json:"teacher_effectiveness"`
-	AverageSchoolScore    float64               `json:"average_school_score"`
-	MajorDistribution     []MajorStatItem       `json:"major_distribution"`
-	TopTeacherActivity    []TeacherActivityItem `json:"top_teacher_activity"`
+	TotalStudents         int64                   `json:"total_students"`
+	TotalTeachers         int64                   `json:"total_teachers"`
+	TotalClasses          int64                   `json:"total_classes"`
+	TotalMajors           int64                   `json:"total_majors"`
+	TotalMaterials        int64                   `json:"total_materials"`
+	TotalTasks            int64                   `json:"total_tasks"`
+	TotalAssessments      int64                   `json:"total_assessments"`
+	AcademicParticipation float64                 `json:"academic_participation"`
+	TeacherEffectiveness  float64                 `json:"teacher_effectiveness"`
+	AverageSchoolScore    float64                 `json:"average_school_score"`
+	MajorDistribution     []MajorStatItem         `json:"major_distribution"`
+	SubjectStats          []SubjectMonitoringItem `json:"subject_stats"`
+	TopTeacherActivity    []TeacherActivityItem   `json:"top_teacher_activity"`
 }
 
 type SchoolGradeItem struct {
@@ -222,47 +230,7 @@ func (r *monitoringRepository) GetCurriculumMonitoring() (*CurriculumMonitoringD
 	}
 
 	// Statistik per Mata Pelajaran
-	var subjects []models.Subject
-	r.db.Order("name ASC").Find(&subjects)
-	for _, s := range subjects {
-		var teacherCount int64
-		r.db.Model(&models.ClassSubject{}).Where("subject_id = ?", s.ID).Distinct("teacher_id").Count(&teacherCount)
-
-		var matCount int64
-		r.db.Model(&models.Material{}).
-			Joins("JOIN class_subjects ON class_subjects.id = materials.class_subject_id").
-			Where("class_subjects.subject_id = ? AND materials.is_published = ?", s.ID, true).
-			Count(&matCount)
-
-		var tskCount int64
-		r.db.Model(&models.Task{}).
-			Joins("JOIN class_subjects ON class_subjects.id = tasks.class_subject_id").
-			Where("class_subjects.subject_id = ? AND tasks.is_published = ?", s.ID, true).
-			Count(&tskCount)
-
-		var subjAvg *float64
-		r.db.Model(&models.TaskSubmission{}).
-			Joins("JOIN tasks ON tasks.id = task_submissions.task_id").
-			Joins("JOIN class_subjects ON class_subjects.id = tasks.class_subject_id").
-			Where("class_subjects.subject_id = ? AND task_submissions.score IS NOT NULL", s.ID).
-			Select("AVG(task_submissions.score)").
-			Scan(&subjAvg)
-
-		avg := 0.0
-		if subjAvg != nil {
-			avg = round(*subjAvg, 1)
-		}
-
-		data.SubjectStats = append(data.SubjectStats, SubjectMonitoringItem{
-			SubjectID:     s.ID,
-			SubjectCode:   s.Code,
-			SubjectName:   s.Name,
-			TeacherCount:  teacherCount,
-			MaterialCount: matCount,
-			TaskCount:     tskCount,
-			AverageScore:  avg,
-		})
-	}
+	data.SubjectStats = r.getSubjectStats()
 
 	// Aktivitas & Kinerja Guru untuk Kurikulum
 	var teachers []models.Teacher
@@ -419,6 +387,9 @@ func (r *monitoringRepository) GetPrincipalMonitoring() (*PrincipalMonitoringDat
 		})
 	}
 
+	// Statistik per Mata Pelajaran (termasuk penjabaran guru pengampu)
+	data.SubjectStats = r.getSubjectStats()
+
 	return data, nil
 }
 
@@ -479,4 +450,62 @@ func (r *monitoringRepository) GetSchoolGrades(classID uint, subjectID uint) ([]
 	}
 
 	return results, nil
+}
+
+func (r *monitoringRepository) getSubjectStats() []SubjectMonitoringItem {
+	var subjects []models.Subject
+	r.db.Order("name ASC").Find(&subjects)
+
+	items := make([]SubjectMonitoringItem, 0, len(subjects))
+	for _, s := range subjects {
+		var teachers []SubjectTeacherInfo
+		r.db.Table("teachers").
+			Select("teachers.id as teacher_id, teachers.name as teacher_name, COALESCE(teachers.nip, '') as nip").
+			Joins("JOIN class_subjects ON class_subjects.teacher_id = teachers.id").
+			Where("class_subjects.subject_id = ? AND teachers.deleted_at IS NULL AND class_subjects.deleted_at IS NULL", s.ID).
+			Distinct("teachers.id, teachers.name, teachers.nip").
+			Order("teachers.name ASC").
+			Scan(&teachers)
+
+		if teachers == nil {
+			teachers = []SubjectTeacherInfo{}
+		}
+
+		var matCount int64
+		r.db.Model(&models.Material{}).
+			Joins("JOIN class_subjects ON class_subjects.id = materials.class_subject_id").
+			Where("class_subjects.subject_id = ? AND materials.is_published = ?", s.ID, true).
+			Count(&matCount)
+
+		var tskCount int64
+		r.db.Model(&models.Task{}).
+			Joins("JOIN class_subjects ON class_subjects.id = tasks.class_subject_id").
+			Where("class_subjects.subject_id = ? AND tasks.is_published = ?", s.ID, true).
+			Count(&tskCount)
+
+		var subjAvg *float64
+		r.db.Model(&models.TaskSubmission{}).
+			Joins("JOIN tasks ON tasks.id = task_submissions.task_id").
+			Joins("JOIN class_subjects ON class_subjects.id = tasks.class_subject_id").
+			Where("class_subjects.subject_id = ? AND task_submissions.score IS NOT NULL", s.ID).
+			Select("AVG(task_submissions.score)").
+			Scan(&subjAvg)
+
+		avg := 0.0
+		if subjAvg != nil {
+			avg = round(*subjAvg, 1)
+		}
+
+		items = append(items, SubjectMonitoringItem{
+			SubjectID:     s.ID,
+			SubjectCode:   s.Code,
+			SubjectName:   s.Name,
+			TeacherCount:  int64(len(teachers)),
+			Teachers:      teachers,
+			MaterialCount: matCount,
+			TaskCount:     tskCount,
+			AverageScore:  avg,
+		})
+	}
+	return items
 }

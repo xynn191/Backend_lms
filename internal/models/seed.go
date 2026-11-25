@@ -10,6 +10,7 @@ import (
 func Seed(db *gorm.DB) {
 	seedRoles(db)
 	seedAdminUser(db)
+	seedSuperadminUser(db)
 	seedActiveAcademicYear(db)
 }
 
@@ -48,6 +49,7 @@ func seedRoles(db *gorm.DB) {
 		{ID: 3, Name: RoleStudent},
 		{ID: 4, Name: RoleCurriculum},
 		{ID: 5, Name: RolePrincipal},
+		{ID: 6, Name: RoleSuperadmin},
 	}
 
 	for _, role := range roles {
@@ -93,4 +95,33 @@ func seedAdminUser(db *gorm.DB) {
 	}
 
 	log.Println("[Seed] Admin default berhasil dibuat: admin@edulms.id / Admin@123")
+}
+
+func seedSuperadminUser(db *gorm.DB) {
+	var existingUser User
+	result := db.Where("email = ?", "superadmin@veyora.id").First(&existingUser)
+	if result.Error == nil {
+		return // Already exists
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte("superadmin123"), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("[Seed] Gagal hash password superadmin: %v", err)
+		return
+	}
+
+	superUser := User{
+		ID:       "00000000-0000-0000-0000-000000000099",
+		RoleID:   6, // RoleSuperadmin is seeded with ID 6
+		Email:    "superadmin@veyora.id",
+		Password: string(hashed),
+		IsActive: true,
+	}
+
+	if err := db.Create(&superUser).Error; err != nil {
+		log.Printf("[Seed] Gagal membuat user superadmin: %v", err)
+		return
+	}
+
+	log.Println("[Seed] Superadmin default berhasil dibuat: superadmin@veyora.id / superadmin123")
 }

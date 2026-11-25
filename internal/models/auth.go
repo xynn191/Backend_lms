@@ -15,6 +15,7 @@ const (
 	RoleStudent    = "siswa"
 	RoleCurriculum = "kurikulum"
 	RolePrincipal  = "kepala_sekolah"
+	RoleSuperadmin = "superadmin"
 )
 
 var SupportedRoles = []string{
@@ -23,6 +24,7 @@ var SupportedRoles = []string{
 	RoleStudent,
 	RoleCurriculum,
 	RolePrincipal,
+	RoleSuperadmin,
 }
 
 type Role struct {
